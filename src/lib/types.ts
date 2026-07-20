@@ -104,16 +104,25 @@ export interface WebmapContent {
   layers?: WebmapLayerRef[];
 }
 
+export interface ChartData {
+  labels: string[];
+  values: number[];
+}
+
 export interface DashboardWidget {
   type: string;
   title?: string;
   chart?: string;
+  connection?: string;
   layer?: string;
   value?: number | string;
+  data?: ChartData;
 }
 
 export interface DashboardContent {
   layout?: string;
+  center?: [number, number];
+  zoom?: number;
   widgets?: DashboardWidget[];
 }
 
@@ -132,17 +141,26 @@ export interface FormContent {
 export interface ReportSection {
   title: string;
   type: string;
+  text?: string;
+  connection?: string;
   layer?: string;
+  columns?: string[];
+  rows?: string[][];
 }
 
 export interface ReportContent {
+  center?: [number, number];
+  zoom?: number;
   sections?: ReportSection[];
 }
 
 export interface StorySlide {
   title: string;
   text?: string;
+  connection?: string;
   layer?: string;
+  center?: [number, number];
+  zoom?: number;
 }
 
 export interface StoryMapContent {

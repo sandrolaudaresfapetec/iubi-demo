@@ -75,13 +75,15 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
 - Acesse as APIs pelo caminho de mesma origem "/iubi/..." — a base também está
   na global "IUBI_BASE". Ex.: camada WMS => IUBI_BASE + '/map-render/v1/<conn>/render/map'.
 - Descubra os IDs de conexão em GET /iubi/catalog/v1/connections. Referência atual:
-  IBGE BDIA = "ab80b3bb-6e7a-4f95-936e-869bc2a991ef" (camadas ex.: BDIA:gpc_geol,
-  BDIA:gpc_vege, BDIA:pedo_area); IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775".
+  DataGeo-SP = "a9ce6906-9a5d-4d2a-8cf2-5d558de2cd41" (camadas ex.:
+  datageowms:G_GEOLOGIA, datageowms:G_PedologicoIAC, datageo:G_AIA_FLORA);
+  IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775". As camadas cobrem o Estado
+  de São Paulo (centralize o mapa em [-22.2, -48.7], zoom ~6).
 - Mapas Leaflet: SEMPRE adicione primeiro a camada base OSM
   "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')" e depois a
   camada WMS "L.tileLayer.wms(IUBI_BASE + '/map-render/v1/<conn>/render/map',
-  { layers: 'BDIA:gpc_geol', format: 'image/png', transparent: true })". Dê ao
-  contêiner do mapa uma altura (ex.: #map{height:420px}).
+  { layers: 'datageowms:G_GEOLOGIA', format: 'image/png', transparent: true })".
+  Dê ao contêiner do mapa uma altura (ex.: #map{height:420px}).
 - Gráficos: use SEMPRE um <canvas> (nunca <div>) e a sintaxe do Chart.js v4:
   "new Chart(document.getElementById('grafico'), { type:'bar', data:{...},
   options:{ scales:{ y:{ beginAtZero:true } } } })". Como o GeoServer público não
@@ -90,8 +92,8 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
 - Use "console.log(...)" para depurar — a saída aparece no console do playground.`;
 
 export const COPILOT_SUGGESTIONS: string[] = [
-  'Crie um dashboard com um mapa e um gráfico usando dados do IBGE.',
-  'Monte uma página com um mapa Leaflet e a camada de geologia do IBGE.',
+  'Crie um dashboard com um mapa e um gráfico usando dados do DataGeo-SP.',
+  'Monte uma página com um mapa Leaflet e a camada de geologia do DataGeo-SP.',
   'Como listo as camadas de um servidor GIS pela API?',
   'Explique como filtrar feições usando CQL na API de features.',
 ];

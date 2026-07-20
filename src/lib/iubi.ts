@@ -130,3 +130,27 @@ export interface ContextDetail extends ContextSummary {
 export function getContext(type: ContextType, ctxId: string): Promise<ContextDetail> {
   return getJson<ContextDetail>(`${SERVICES.context}/contents/${type}/${ctxId}`);
 }
+
+// Prefixo usado na descrição para distinguir envios de formulário dos modelos.
+export const FORM_SUBMISSION_TAG = '[envio]';
+
+// Grava um envio de formulário como um contexto FORM no PostGIS do backend.
+export function submitFormEntry(
+  formId: string,
+  formTitle: string,
+  values: Record<string, string>,
+): Promise<ContextDetail> {
+  const nome = values.nome || Object.values(values)[0] || 'Sem nome';
+  const when = new Date().toLocaleString('pt-BR');
+  return getJson<ContextDetail>(`${SERVICES.context}/contents/FORM`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `Envio: ${nome}`,
+      description: `${FORM_SUBMISSION_TAG}:${formId} ${formTitle} · ${when}`,
+      color: '#d97706',
+      type: 'FORM',
+      context: { submission: true, formId, values, createdAt: new Date().toISOString() },
+    }),
+  });
+}
