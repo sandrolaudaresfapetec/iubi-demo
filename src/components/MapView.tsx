@@ -116,7 +116,7 @@ export function MapView({ layers, onFeatureInfo }: MapViewProps) {
       />
       {layers.map(({ connectionId, layer }) => (
         <WMSTileLayer
-          key={`${connectionId}:${layer.identifier}`}
+          key={`${connectionId}:${layer.map.layers}`}
           url={renderMapBaseUrl(connectionId)}
           layers={layer.map.layers}
           format="image/png"

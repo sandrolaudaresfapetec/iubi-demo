@@ -1,12 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Map, LayoutDashboard, BarChart3, Bot, Globe2 } from 'lucide-react';
+import { Map, LayoutDashboard, Bot, Globe2 } from 'lucide-react';
 import { IUBI_BASE_URL } from '../lib/config';
 
 const navItems = [
   { to: '/', label: 'Início', icon: Globe2, end: true },
   { to: '/mapa', label: 'Explorador de Mapa', icon: Map },
   { to: '/contextos', label: 'Contextos', icon: LayoutDashboard },
-  { to: '/estatisticas', label: 'Estatísticas', icon: BarChart3 },
   { to: '/copilot', label: 'IUBI Copilot', icon: Bot },
 ];
 
@@ -15,10 +14,10 @@ export function Layout() {
     <div className="min-h-full flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-[1000]">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center gap-6">
-          <NavLink to="/" className="flex items-center gap-2 shrink-0">
-            <img src="/favicon.svg" alt="IUBI" className="h-8 w-8" />
-            <div className="leading-tight">
-              <div className="font-extrabold text-iubi-800 text-lg">IUBI Demo</div>
+          <NavLink to="/" className="flex items-center gap-3 shrink-0">
+            <img src="/iubi-logo.png" alt="IUBI Geosistema" className="h-10 w-auto" />
+            <div className="leading-tight border-l border-slate-200 pl-3 hidden sm:block">
+              <div className="font-extrabold text-iubi-800 text-sm">Demo</div>
               <div className="text-[10px] uppercase tracking-wider text-slate-400">
                 Geovisualização & APIs
               </div>

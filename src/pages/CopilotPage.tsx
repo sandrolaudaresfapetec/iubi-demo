@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, Send, User, Sparkles, AlertTriangle, Square } from 'lucide-react';
+import { Bot, Send, User, Sparkles, AlertTriangle, Square, PlayCircle } from 'lucide-react';
 import { streamChat, getAiHealth, type ChatMessage } from '../lib/chat';
-import { COPILOT_SYSTEM_PROMPT } from '../lib/copilotPrompt';
+import { COPILOT_SYSTEM_PROMPT, COPILOT_SUGGESTIONS } from '../lib/copilotPrompt';
 import { Markdown } from '../components/Markdown';
-
-const SUGGESTIONS = [
-  'Como listo as camadas de um servidor GIS pela API?',
-  'Escreva um componente React que renderiza uma camada WMS do IUBI no Leaflet.',
-  'Como faço uma agregação de estatísticas em uma camada?',
-  'Explique como filtrar feições usando CQL na API de features.',
-];
+import { CodePlayground } from '../components/CodePlayground';
+import { parseProjectFiles, hasRunnableProject, type PlaygroundFile } from '../lib/playground';
 
 export function CopilotPage() {
   const ai = useQuery({ queryKey: ['ai-health'], queryFn: getAiHealth, retry: 0 });
@@ -18,6 +13,7 @@ export function CopilotPage() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playgroundFiles, setPlaygroundFiles] = useState<PlaygroundFile[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -100,10 +96,11 @@ export function CopilotPage() {
             <Sparkles className="text-iubi-300" size={40} />
             <p className="text-slate-500 max-w-md">
               Pergunte qualquer coisa sobre as APIs e componentes de geovisualização do IUBI. O
-              assistente conhece os endpoints e gera exemplos de código.
+              assistente gera projetos completos (HTML, CSS e JS) — abra tudo junto no playground
+              para ver o resultado final ou baixe os arquivos.
             </p>
             <div className="grid sm:grid-cols-2 gap-2 w-full max-w-2xl">
-              {SUGGESTIONS.map((s) => (
+              {COPILOT_SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
@@ -136,7 +133,23 @@ export function CopilotPage() {
               {m.role === 'user' ? (
                 <p className="text-sm whitespace-pre-wrap">{m.content}</p>
               ) : m.content ? (
-                <Markdown text={m.content} />
+                <>
+                  <Markdown text={m.content} />
+                  {(() => {
+                    if (m.role !== 'assistant' || (streaming && i === messages.length - 1)) return null;
+                    const files = parseProjectFiles(m.content);
+                    if (!hasRunnableProject(files)) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setPlaygroundFiles(files)}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-iubi-700"
+                      >
+                        <PlayCircle size={15} /> Abrir no Playground ({files.length} arquivo{files.length > 1 ? 's' : ''})
+                      </button>
+                    );
+                  })()}
+                </>
               ) : (
                 <span className="text-sm text-slate-400">…</span>
               )}
@@ -188,6 +201,10 @@ export function CopilotPage() {
           </button>
         )}
       </form>
+
+      {playgroundFiles !== null && (
+        <CodePlayground files={playgroundFiles} onClose={() => setPlaygroundFiles(null)} />
+      )}
     </div>
   );
 }

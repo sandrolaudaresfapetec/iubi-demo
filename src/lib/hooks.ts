@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  getContext,
   getLayerSchema,
   getStatisticsCapabilities,
   listConnections,
@@ -51,5 +52,13 @@ export function useContexts(type: ContextType, q?: string) {
   return useQuery({
     queryKey: ['contexts', type, q ?? ''],
     queryFn: () => listContexts(type, q),
+  });
+}
+
+export function useContext(type: ContextType, ctxId: string | undefined) {
+  return useQuery({
+    queryKey: ['context', type, ctxId],
+    queryFn: () => getContext(type, ctxId!),
+    enabled: Boolean(ctxId),
   });
 }

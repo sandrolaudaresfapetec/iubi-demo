@@ -89,6 +89,84 @@ export interface ContextSummary {
   changedBy: string;
 }
 
+export interface WebmapLayerRef {
+  connection: string;
+  layer: string;
+  title?: string;
+  visible?: boolean;
+  opacity?: number;
+}
+
+export interface WebmapContent {
+  basemap?: string;
+  center?: [number, number];
+  zoom?: number;
+  layers?: WebmapLayerRef[];
+}
+
+export interface ChartData {
+  labels: string[];
+  values: number[];
+}
+
+export interface DashboardWidget {
+  type: string;
+  title?: string;
+  chart?: string;
+  connection?: string;
+  layer?: string;
+  value?: number | string;
+  data?: ChartData;
+}
+
+export interface DashboardContent {
+  layout?: string;
+  center?: [number, number];
+  zoom?: number;
+  widgets?: DashboardWidget[];
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  options?: string[];
+}
+
+export interface FormContent {
+  fields?: FormField[];
+}
+
+export interface ReportSection {
+  title: string;
+  type: string;
+  text?: string;
+  connection?: string;
+  layer?: string;
+  columns?: string[];
+  rows?: string[][];
+}
+
+export interface ReportContent {
+  center?: [number, number];
+  zoom?: number;
+  sections?: ReportSection[];
+}
+
+export interface StorySlide {
+  title: string;
+  text?: string;
+  connection?: string;
+  layer?: string;
+  center?: [number, number];
+  zoom?: number;
+}
+
+export interface StoryMapContent {
+  slides?: StorySlide[];
+}
+
 export interface GeoFeature {
   type: 'Feature';
   id: string;

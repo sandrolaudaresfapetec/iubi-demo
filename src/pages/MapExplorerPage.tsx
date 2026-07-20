@@ -21,24 +21,26 @@ export function MapExplorerPage() {
     if (!filter.trim()) return list;
     const f = filter.toLowerCase();
     return list.filter(
-      (l) => l.title.toLowerCase().includes(f) || l.identifier.toLowerCase().includes(f),
+      (l) => l.title.toLowerCase().includes(f) || l.map.layers.toLowerCase().includes(f),
     );
   }, [caps.data, filter]);
 
-  const isActive = (l: LayerCapability) =>
-    active.some((a) => a.connectionId === effectiveConn && a.layer.identifier === l.identifier);
+  const layerKey = (a: ActiveLayer) => `${a.connectionId}:${a.layer.map.layers}`;
 
-  const toggleLayer = (l: LayerCapability) => {
+  const isActive = (l: LayerCapability) =>
+    active.some((a) => a.connectionId === effectiveConn && a.layer.map.layers === l.map.layers);
+
+  const toggleLayer = (l: LayerCapability, connectionId = effectiveConn) => {
     setActive((prev) => {
       const exists = prev.some(
-        (a) => a.connectionId === effectiveConn && a.layer.identifier === l.identifier,
+        (a) => a.connectionId === connectionId && a.layer.map.layers === l.map.layers,
       );
       if (exists) {
         return prev.filter(
-          (a) => !(a.connectionId === effectiveConn && a.layer.identifier === l.identifier),
+          (a) => !(a.connectionId === connectionId && a.layer.map.layers === l.map.layers),
         );
       }
-      return [...prev, { connectionId: effectiveConn, layer: l }];
+      return [...prev, { connectionId, layer: l }];
     });
   };
 
@@ -88,7 +90,7 @@ export function MapExplorerPage() {
               {filtered.map((l) => {
                 const on = isActive(l);
                 return (
-                  <li key={l.identifier}>
+                  <li key={l.map.layers}>
                     <button
                       onClick={() => toggleLayer(l)}
                       className={`w-full text-left rounded-lg border p-2.5 transition-colors ${
@@ -143,13 +145,13 @@ export function MapExplorerPage() {
             </div>
             <ul className="space-y-2">
               {active.map((a) => (
-                <li key={`${a.connectionId}:${a.layer.identifier}`} className="text-xs">
+                <li key={layerKey(a)} className="text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-slate-700" title={a.layer.title}>
                       {a.layer.title}
                     </span>
                     <button
-                      onClick={() => toggleLayer(a.layer)}
+                      onClick={() => toggleLayer(a.layer, a.connectionId)}
                       className="text-slate-400 hover:text-red-500 shrink-0"
                     >
                       <X size={13} />
