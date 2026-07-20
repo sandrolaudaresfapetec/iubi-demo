@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { LayoutDashboard, Search, Calendar, Tag } from 'lucide-react';
 import { useContexts } from '../lib/hooks';
 import { StateWrapper, Badge } from '../components/ui';
-import type { ContextType } from '../lib/types';
+import { ContextDetailModal } from '../components/ContextDetailModal';
+import type { ContextSummary, ContextType } from '../lib/types';
 
 const TYPES: ContextType[] = ['WEBMAP', 'DASHBOARD', 'FORM', 'REPORT', 'STORY_MAP'];
 
 export function ContextsPage() {
   const [type, setType] = useState<ContextType>('WEBMAP');
   const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<ContextSummary | null>(null);
   const contexts = useContexts(type, q.trim() || undefined);
 
   return (
@@ -58,9 +60,11 @@ export function ContextsPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {contexts.data?.map((c) => (
-            <div
+            <button
               key={c.id}
-              className="rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow"
+              type="button"
+              onClick={() => setSelected(c)}
+              className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 text-left transition-shadow hover:border-iubi-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-iubi-300"
             >
               <div className="flex items-start gap-2">
                 <span
@@ -89,10 +93,12 @@ export function ContextsPage() {
               <code className="mt-2 block font-mono text-[10px] text-slate-300 truncate">
                 {c.id}
               </code>
-            </div>
+            </button>
           ))}
         </div>
       </StateWrapper>
+
+      {selected && <ContextDetailModal summary={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

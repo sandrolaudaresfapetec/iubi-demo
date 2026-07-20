@@ -123,7 +123,8 @@ export function listContexts(type: ContextType, q?: string): Promise<ContextSumm
 }
 
 export interface ContextDetail extends ContextSummary {
-  content?: unknown;
+  context?: unknown;
+  favorite?: boolean;
 }
 
 export function getContext(type: ContextType, ctxId: string): Promise<ContextDetail> {
