@@ -1,8 +1,11 @@
 import { Fragment, type ReactNode } from 'react';
+import { Play } from 'lucide-react';
+
+const RUNNABLE_LANGS = new Set(['', 'js', 'jsx', 'ts', 'tsx', 'javascript', 'typescript']);
 
 // Renderizador minimalista de Markdown (blocos de código, inline code, listas,
 // negrito e parágrafos). Suficiente para as respostas do Copilot, sem dependências.
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, onRunCode }: { text: string; onRunCode?: (code: string) => void }) {
   const blocks = text.split(/```/);
   return (
     <div className="prose-chat text-sm text-slate-700 leading-relaxed">
@@ -10,11 +13,24 @@ export function Markdown({ text }: { text: string }) {
         const isCode = i % 2 === 1;
         if (isCode) {
           const firstNewline = block.indexOf('\n');
-          const body = firstNewline >= 0 ? block.slice(firstNewline + 1) : block;
+          const lang = (firstNewline >= 0 ? block.slice(0, firstNewline) : '').trim().toLowerCase();
+          const body = (firstNewline >= 0 ? block.slice(firstNewline + 1) : block).replace(/\n$/, '');
+          const runnable = Boolean(onRunCode) && RUNNABLE_LANGS.has(lang) && body.trim().length > 0;
           return (
-            <pre key={i}>
-              <code>{body.replace(/\n$/, '')}</code>
-            </pre>
+            <div key={i} className="relative">
+              {runnable && (
+                <button
+                  type="button"
+                  onClick={() => onRunCode!(body)}
+                  className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-iubi-600 px-2 py-1 text-[11px] font-semibold text-white shadow hover:bg-iubi-700"
+                >
+                  <Play size={11} /> Executar
+                </button>
+              )}
+              <pre>
+                <code>{body}</code>
+              </pre>
+            </div>
           );
         }
         return <Fragment key={i}>{renderInlineBlock(block)}</Fragment>;
