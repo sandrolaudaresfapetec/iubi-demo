@@ -77,8 +77,16 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
 - Descubra os IDs de conexão em GET /iubi/catalog/v1/connections. Referência atual:
   IBGE BDIA = "ab80b3bb-6e7a-4f95-936e-869bc2a991ef" (camadas ex.: BDIA:gpc_geol,
   BDIA:gpc_vege, BDIA:pedo_area); IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775".
-- Para mapas com Leaflet: crie a camada base OSM e adicione L.tileLayer.wms(...)
-  apontando para /render/map. Para gráficos, use "new Chart(canvas, {...})".
+- Mapas Leaflet: SEMPRE adicione primeiro a camada base OSM
+  "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')" e depois a
+  camada WMS "L.tileLayer.wms(IUBI_BASE + '/map-render/v1/<conn>/render/map',
+  { layers: 'BDIA:gpc_geol', format: 'image/png', transparent: true })". Dê ao
+  contêiner do mapa uma altura (ex.: #map{height:420px}).
+- Gráficos: use SEMPRE um <canvas> (nunca <div>) e a sintaxe do Chart.js v4:
+  "new Chart(document.getElementById('grafico'), { type:'bar', data:{...},
+  options:{ scales:{ y:{ beginAtZero:true } } } })". Como o GeoServer público não
+  expõe estatísticas (WPS), use dados de exemplo no gráfico (não chame endpoints
+  de /statistics).
 - Use "console.log(...)" para depurar — a saída aparece no console do playground.`;
 
 export const COPILOT_SUGGESTIONS: string[] = [
