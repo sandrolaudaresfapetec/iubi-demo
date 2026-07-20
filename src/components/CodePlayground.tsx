@@ -44,29 +44,35 @@ const PAGE_CSS = `html,body{margin:0;min-height:100%;font-family:system-ui,-appl
 const FETCH_TOLERANCE = `(function(){
   var _fetch=window.fetch.bind(window);
   var SAMPLE=['Campinas','Sorocaba','Ribeirão Preto','S.J. Rio Preto','Bauru'];
+  function robustArr(arr){ try{ arr.filter=function(fn){ var r=[]; for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))r.push(arr[i]); } return r.length?r:arr.slice(); }; arr.find=function(fn){ for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))return arr[i]; } return arr[0]; }; }catch(e){} return arr; }
   function sampleFeatures(){
-    return SAMPLE.map(function(n,i){
+    return robustArr(SAMPLE.map(function(n,i){
       var v=(SAMPLE.length-i)*20;
       var base={nome:n,name:n,municipio:n,label:n,value:v,population:120000-i*9000,count:v,total:v,area:v};
       var props=new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|area|med/i.test(k))return v; return n; }});
       return {type:'Feature',properties:props,geometry:{type:'Point',coordinates:[-47-i*0.3,-22-i*0.3]}};
-    });
+    }));
   }
-  function sampleGroups(){ return SAMPLE.map(function(n,i){ var v=(SAMPLE.length-i)*20; var base={group:n,label:n,name:n,nome:n,value:v,count:v,total:v,sum:v,avg:v,Quantidade:v}; return new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|sum|avg|med|quant/i.test(k))return v; return n; }}); }); }
+  function sampleGroups(){ return robustArr(SAMPLE.map(function(n,i){ var v=(SAMPLE.length-i)*20; var base={group:n,label:n,name:n,nome:n,value:v,count:v,total:v,sum:v,avg:v,Quantidade:v}; return new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|sum|avg|med|quant/i.test(k))return v; return n; }}); })); }
+  function sampleAttributes(){ return robustArr(['population','nome','name','municipio','area','value','count'].map(function(n){ return {name:n,localName:n,label:n,type:/pop|area|value|count/i.test(n)?'number':'string'}; })); }
   function mkRes(obj){ return {ok:true,status:200,headers:{get:function(){return 'application/json';}},json:function(){return Promise.resolve(obj);},text:function(){var s='';try{s=JSON.stringify(obj);}catch(e){}return Promise.resolve(s);},clone:function(){return mkRes(obj);}}; }
-  function withLayers(arr){ try{ arr.layers=arr; arr.filter=function(fn){ var r=[]; for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))r.push(arr[i]); } return r.length?r:arr.slice(); }; arr.find=function(fn){ for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))return arr[i]; } return arr[0]; }; }catch(e){} return arr; }
+  function withLayers(arr){ try{arr.layers=arr;}catch(e){} return robustArr(arr); }
+  function withFunctions(arr){ try{arr.functions=arr;}catch(e){} return robustArr(arr); }
   function normLayers(list){ var arr=(list||[]).map(function(l){ var id=(l&&(l.identifier||(l.map&&l.map.layers)||l.name||l.title))||'datageowms:G_GEOLOGIA'; var o=Object.assign({},l); o.identifier=id; o.name=id; return o; }); if(!arr.length)arr=[{identifier:'datageowms:G_GEOLOGIA',name:'datageowms:G_GEOLOGIA',title:'Geologia'}]; return withLayers(arr); }
   var FUNCS=['Count','Sum','Average','Max','Min','Median','StdDev','SumArea'].map(function(n){return {name:n,alias:n};});
+  function schemaRes(a){ var at=(a&&a.length)?robustArr(a):sampleAttributes(); return mkRes({attributes:at,properties:at,fields:at}); }
   window.fetch=function(input,init){
     var url=typeof input==='string'?input:((input&&input.url)||'');
     var isStatCap=/\\/statistics\\/capabilities/.test(url);
     var isStat=/\\/data\\/statistics(\\?|$|[^/])/.test(url)&&!isStatCap;
+    var isSchema=/\\/schema(\\?|$)/.test(url)||/features\\/[^/?]+\\/schema/.test(url);
     var isCap=/\\/data\\/capabilities/.test(url)&&!isStatCap;
-    var isFeat=/\\/data\\/features(\\/|\\?|$)/.test(url);
-    if(!isStatCap&&!isStat&&!isCap&&!isFeat) return _fetch(input,init);
+    var isFeat=/\\/data\\/features(\\/|\\?|$)/.test(url)&&!isSchema;
+    if(!isStatCap&&!isStat&&!isSchema&&!isCap&&!isFeat) return _fetch(input,init);
     function fallback(){
       if(isStatCap) return mkRes(withFunctions(FUNCS.slice()));
       if(isStat) return mkRes({aggregations:[{groups:sampleGroups()}],results:sampleGroups()});
+      if(isSchema) return schemaRes(null);
       if(isCap) return mkRes(normLayers([]));
       return mkRes({type:'FeatureCollection',features:sampleFeatures()});
     }
@@ -74,13 +80,13 @@ const FETCH_TOLERANCE = `(function(){
       return res.clone().json().then(function(d){
         if(isStatCap){ var f=(d&&(d.functions||d.aggregations))||[]; return mkRes(withFunctions(f.length?f:FUNCS.slice())); }
         if(isStat){ if(d&&d.aggregations&&d.aggregations.length&&d.aggregations[0].groups&&d.aggregations[0].groups.length) return res; return mkRes({aggregations:[{groups:sampleGroups()}],results:sampleGroups()}); }
+        if(isSchema){ return schemaRes(d&&(d.attributes||d.properties||d.fields)); }
         if(isCap) return mkRes(normLayers(Array.isArray(d)?d:(d&&d.layers)));
         if(d&&Array.isArray(d.features)&&d.features.length) return res;
         return mkRes({type:'FeatureCollection',features:sampleFeatures()});
       }).catch(fallback);
     }).catch(fallback);
   };
-  function withFunctions(arr){ try{arr.functions=arr;}catch(e){} return arr; }
 })();`;
 
 // Monta o documento do iframe combinando html + css + js. React/ReactDOM/Leaflet/
