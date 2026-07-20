@@ -1,19 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, Send, User, Sparkles, AlertTriangle, Square } from 'lucide-react';
+import { Bot, Send, User, Sparkles, AlertTriangle, Square, Code2, Eye } from 'lucide-react';
 import { streamChat, getAiHealth, type ChatMessage } from '../lib/chat';
-import { COPILOT_SYSTEM_PROMPT } from '../lib/copilotPrompt';
+import { COPILOT_PROMPTS, COPILOT_SUGGESTIONS, type CopilotMode } from '../lib/copilotPrompt';
 import { Markdown } from '../components/Markdown';
-
-const SUGGESTIONS = [
-  'Como listo as camadas de um servidor GIS pela API?',
-  'Escreva um componente React que renderiza uma camada WMS do IUBI no Leaflet.',
-  'Como faço uma agregação de estatísticas em uma camada?',
-  'Explique como filtrar feições usando CQL na API de features.',
-];
 
 export function CopilotPage() {
   const ai = useQuery({ queryKey: ['ai-health'], queryFn: getAiHealth, retry: 0 });
+  const [mode, setMode] = useState<CopilotMode>('visual');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -40,7 +34,7 @@ export function CopilotPage() {
 
     try {
       await streamChat({
-        messages: [{ role: 'system', content: COPILOT_SYSTEM_PROMPT }, ...history],
+        messages: [{ role: 'system', content: COPILOT_PROMPTS[mode] }, ...history],
         model: ai.data?.model,
         signal: controller.signal,
         onToken: (token) => {
@@ -79,6 +73,34 @@ export function CopilotPage() {
             Assistente de IA aberto · {ai.data?.model ?? 'Llama via Groq'}
           </p>
         </div>
+        <div
+          role="group"
+          aria-label="Modo de resposta"
+          className="ml-auto flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold"
+        >
+          <button
+            type="button"
+            onClick={() => setMode('visual')}
+            aria-pressed={mode === 'visual'}
+            title="Respostas simples e visuais, para leigos"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
+              mode === 'visual' ? 'bg-white text-iubi-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Eye size={14} /> Visual
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('dev')}
+            aria-pressed={mode === 'dev'}
+            title="Respostas técnicas com código, para desenvolvedores"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
+              mode === 'dev' ? 'bg-white text-iubi-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Code2 size={14} /> Desenvolvedor
+          </button>
+        </div>
       </div>
 
       {notConfigured && (
@@ -99,11 +121,12 @@ export function CopilotPage() {
           <div className="h-full flex flex-col items-center justify-center text-center gap-4">
             <Sparkles className="text-iubi-300" size={40} />
             <p className="text-slate-500 max-w-md">
-              Pergunte qualquer coisa sobre as APIs e componentes de geovisualização do IUBI. O
-              assistente conhece os endpoints e gera exemplos de código.
+              {mode === 'visual'
+                ? 'Pergunte, em linguagem simples, o que dá para ver e fazer nos mapas do IUBI. As respostas vêm de forma visual e sem jargão.'
+                : 'Pergunte qualquer coisa sobre as APIs e componentes de geovisualização do IUBI. O assistente conhece os endpoints e gera exemplos de código.'}
             </p>
             <div className="grid sm:grid-cols-2 gap-2 w-full max-w-2xl">
-              {SUGGESTIONS.map((s) => (
+              {COPILOT_SUGGESTIONS[mode].map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
@@ -164,7 +187,7 @@ export function CopilotPage() {
             }
           }}
           rows={1}
-          placeholder="Pergunte sobre as APIs do IUBI…"
+          placeholder={mode === 'visual' ? 'Pergunte em linguagem simples sobre os mapas do IUBI…' : 'Pergunte sobre as APIs do IUBI…'}
           disabled={Boolean(notConfigured)}
           className="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm max-h-40 focus:outline-none focus:ring-2 focus:ring-iubi-300 disabled:bg-slate-50"
         />
