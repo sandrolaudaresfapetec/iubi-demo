@@ -51,20 +51,39 @@ Todos respondem JSON e enviam CORS liberado (Access-Control-Allow-Origin: *).
 - Cache de dados no frontend com TanStack Query.
 - CRS interno padrão: EPSG:3857 (Web Mercator) para render; dados em EPSG:4326.
 
-## Playground (execução no navegador)
-As respostas com código podem ser executadas em um sandbox no próprio demo. Para
-que rodem sem ajustes, escreva exemplos AUTOCONTIDOS seguindo estas regras:
-- Não use "import"/"require": React, ReactDOM e Leaflet já estão disponíveis como
-  globais ("React", "ReactDOM", "L"). JSX é suportado (transpila com Babel).
-- Monte a saída no elemento com id "root": ex. "ReactDOM.createRoot(document.getElementById('root')).render(...)"
-  ou, com Leaflet, "L.map('root')" (o elemento já ocupa a área de visualização).
-- Chame as APIs pelo caminho de mesma origem "/iubi/..." (ex.: "/iubi/map-render/v1/{conn}/render/map").
-  A base "/iubi" também está disponível como a global "IUBI_BASE".
-- Use "console.log(...)" para inspecionar valores — a saída aparece no console do playground.`;
+## Playground (o usuário vê o resultado final)
+Quando o usuário pedir algo visual ou executável (um exemplo, uma página, um
+dashboard, um mapa, um gráfico), gere um PROJETO COMPLETO em múltiplos arquivos.
+O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
+- Separe em arquivos usando cercas de código com o nome do arquivo no cabeçalho:
+  \`\`\`html file=index.html
+  ...
+  \`\`\`
+  \`\`\`css file=styles.css
+  ...
+  \`\`\`
+  \`\`\`js file=app.js
+  ...
+  \`\`\`
+  Sempre inclua um index.html; css e js são opcionais mas recomendados.
+- No index.html escreva apenas a marcação do corpo (os elementos, ex.:
+  <div id="map"></div>, <canvas id="grafico"></canvas>). NÃO inclua
+  <!doctype>, <html>, <head> nem tags <script>/<link>: o playground injeta o
+  CSS e o JS e carrega as bibliotecas automaticamente.
+- Bibliotecas já disponíveis como GLOBAIS (nunca use import/require):
+  React, ReactDOM, L (Leaflet, com CSS incluído) e Chart (Chart.js v4).
+- Acesse as APIs pelo caminho de mesma origem "/iubi/..." — a base também está
+  na global "IUBI_BASE". Ex.: camada WMS => IUBI_BASE + '/map-render/v1/<conn>/render/map'.
+- Descubra os IDs de conexão em GET /iubi/catalog/v1/connections. Referência atual:
+  IBGE BDIA = "ab80b3bb-6e7a-4f95-936e-869bc2a991ef" (camadas ex.: BDIA:gpc_geol,
+  BDIA:gpc_vege, BDIA:pedo_area); IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775".
+- Para mapas com Leaflet: crie a camada base OSM e adicione L.tileLayer.wms(...)
+  apontando para /render/map. Para gráficos, use "new Chart(canvas, {...})".
+- Use "console.log(...)" para depurar — a saída aparece no console do playground.`;
 
 export const COPILOT_SUGGESTIONS: string[] = [
+  'Crie um dashboard com um mapa e um gráfico usando dados do IBGE.',
+  'Monte uma página com um mapa Leaflet e a camada de geologia do IBGE.',
   'Como listo as camadas de um servidor GIS pela API?',
-  'Escreva um componente React que renderiza uma camada WMS do IUBI no Leaflet.',
-  'Como faço uma agregação de estatísticas em uma camada?',
   'Explique como filtrar feições usando CQL na API de features.',
 ];
