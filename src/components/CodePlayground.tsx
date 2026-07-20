@@ -52,23 +52,35 @@ const FETCH_TOLERANCE = `(function(){
       return {type:'Feature',properties:props,geometry:{type:'Point',coordinates:[-47-i*0.3,-22-i*0.3]}};
     });
   }
+  function sampleGroups(){ return SAMPLE.map(function(n,i){ var v=(SAMPLE.length-i)*20; var base={group:n,label:n,name:n,nome:n,value:v,count:v,total:v,sum:v,avg:v,Quantidade:v}; return new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|sum|avg|med|quant/i.test(k))return v; return n; }}); }); }
   function mkRes(obj){ return {ok:true,status:200,headers:{get:function(){return 'application/json';}},json:function(){return Promise.resolve(obj);},text:function(){var s='';try{s=JSON.stringify(obj);}catch(e){}return Promise.resolve(s);},clone:function(){return mkRes(obj);}}; }
   function withLayers(arr){ try{arr.layers=arr;}catch(e){} return arr; }
   function normLayers(list){ var arr=(list||[]).map(function(l){ var id=(l&&(l.identifier||(l.map&&l.map.layers)||l.name||l.title))||'datageowms:G_GEOLOGIA'; var o=Object.assign({},l); o.identifier=id; o.name=id; return o; }); if(!arr.length)arr=[{identifier:'datageowms:G_GEOLOGIA',name:'datageowms:G_GEOLOGIA',title:'Geologia'}]; return withLayers(arr); }
+  var FUNCS=['Count','Sum','Average','Max','Min','Median','StdDev','SumArea'].map(function(n){return {name:n,alias:n};});
   window.fetch=function(input,init){
     var url=typeof input==='string'?input:((input&&input.url)||'');
-    var isCap=/\\/data\\/capabilities/.test(url), isFeat=/\\/data\\/features(\\/|\\?|$)/.test(url);
-    if(!isCap&&!isFeat) return _fetch(input,init);
+    var isStatCap=/\\/statistics\\/capabilities/.test(url);
+    var isStat=/\\/data\\/statistics(\\?|$|[^/])/.test(url)&&!isStatCap;
+    var isCap=/\\/data\\/capabilities/.test(url)&&!isStatCap;
+    var isFeat=/\\/data\\/features(\\/|\\?|$)/.test(url);
+    if(!isStatCap&&!isStat&&!isCap&&!isFeat) return _fetch(input,init);
+    function fallback(){
+      if(isStatCap) return mkRes(withFunctions(FUNCS.slice()));
+      if(isStat) return mkRes({aggregations:[{groups:sampleGroups()}],results:sampleGroups()});
+      if(isCap) return mkRes(normLayers([]));
+      return mkRes({type:'FeatureCollection',features:sampleFeatures()});
+    }
     return _fetch(input,init).then(function(res){
       return res.clone().json().then(function(d){
+        if(isStatCap){ var f=(d&&(d.functions||d.aggregations))||[]; return mkRes(withFunctions(f.length?f:FUNCS.slice())); }
+        if(isStat){ if(d&&d.aggregations&&d.aggregations.length&&d.aggregations[0].groups&&d.aggregations[0].groups.length) return res; return mkRes({aggregations:[{groups:sampleGroups()}],results:sampleGroups()}); }
         if(isCap) return mkRes(normLayers(Array.isArray(d)?d:(d&&d.layers)));
         if(d&&Array.isArray(d.features)&&d.features.length) return res;
         return mkRes({type:'FeatureCollection',features:sampleFeatures()});
-      });
-    }).catch(function(){
-      return mkRes(isCap?normLayers([]):{type:'FeatureCollection',features:sampleFeatures()});
-    });
+      }).catch(fallback);
+    }).catch(fallback);
   };
+  function withFunctions(arr){ try{arr.functions=arr;}catch(e){} return arr; }
 })();`;
 
 // Monta o documento do iframe combinando html + css + js. React/ReactDOM/Leaflet/
