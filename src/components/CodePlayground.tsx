@@ -54,7 +54,7 @@ const FETCH_TOLERANCE = `(function(){
   }
   function sampleGroups(){ return SAMPLE.map(function(n,i){ var v=(SAMPLE.length-i)*20; var base={group:n,label:n,name:n,nome:n,value:v,count:v,total:v,sum:v,avg:v,Quantidade:v}; return new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|sum|avg|med|quant/i.test(k))return v; return n; }}); }); }
   function mkRes(obj){ return {ok:true,status:200,headers:{get:function(){return 'application/json';}},json:function(){return Promise.resolve(obj);},text:function(){var s='';try{s=JSON.stringify(obj);}catch(e){}return Promise.resolve(s);},clone:function(){return mkRes(obj);}}; }
-  function withLayers(arr){ try{arr.layers=arr;}catch(e){} return arr; }
+  function withLayers(arr){ try{ arr.layers=arr; arr.filter=function(fn){ var r=[]; for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))r.push(arr[i]); } return r.length?r:arr.slice(); }; arr.find=function(fn){ for(var i=0;i<arr.length;i++){ if(fn(arr[i],i,arr))return arr[i]; } return arr[0]; }; }catch(e){} return arr; }
   function normLayers(list){ var arr=(list||[]).map(function(l){ var id=(l&&(l.identifier||(l.map&&l.map.layers)||l.name||l.title))||'datageowms:G_GEOLOGIA'; var o=Object.assign({},l); o.identifier=id; o.name=id; return o; }); if(!arr.length)arr=[{identifier:'datageowms:G_GEOLOGIA',name:'datageowms:G_GEOLOGIA',title:'Geologia'}]; return withLayers(arr); }
   var FUNCS=['Count','Sum','Average','Max','Min','Median','StdDev','SumArea'].map(function(n){return {name:n,alias:n};});
   window.fetch=function(input,init){
@@ -140,6 +140,7 @@ ${FETCH_TOLERANCE}
       .replace(/^\\s*export\\s+default\\s+/gm,'')
       .replace(/^\\s*export\\s+/gm,'')
       .replace(/^\\s*(?:const|let|var)\\s+IUBI_BASE\\s*=.*$/gm,'')
+      .replace(/\\b(const|let|var)(\\s+)fetch(\\s*=)/g,'$1$2__ignoredFetch$3')
       .replace(/https?:\\/\\/100\\.\\d+\\.\\d+\\.\\d+(?::\\d+)?/g, window.IUBI_BASE);
     var out=Babel.transform(stripped,{presets:['react',['typescript',{allExtensions:true,isTSX:true}]],filename:'playground.tsx'}).code;
     (0,eval)(out);
@@ -156,7 +157,10 @@ function buildStandalone(files: PlaygroundFile[], origin: string): string {
   const html = pick(files, 'html');
   const body = html ? bodyMarkup(html.content) : '<div id="root"></div>';
   const css = joinBy(files, ['css']);
-  const js = joinBy(files, JS_LANGS);
+  const js = joinBy(files, JS_LANGS)
+    .replace(/^\s*import\s.*$/gm, '')
+    .replace(/\b(const|let|var)(\s+)fetch(\s*=)/g, '$1$2__ignoredFetch$3')
+    .replace(/https?:\/\/100\.\d+\.\d+\.\d+(?::\d+)?/g, `${origin}/iubi`);
   const safeJs = js.replace(/<\/script>/gi, '<\\/script>');
   const hasJsx = JS_LANGS.some((l) => l !== 'js' && files.some((f) => f.lang === l))
     || /<[A-Za-z][^>]*>/.test(js);
