@@ -26,6 +26,7 @@ import {
 import { useContext, useContexts } from '../lib/hooks';
 import { submitFormEntry, FORM_SUBMISSION_TAG } from '../lib/iubi';
 import { ContextMap } from './ContextMap';
+import { PointPicker } from './PointPicker';
 import { StateWrapper, Badge } from './ui';
 import type {
   ContextSummary,
@@ -212,12 +213,23 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
                 <option key={o}>{o}</option>
               ))}
             </select>
+          ) : f.type === 'point' ? (
+            <div className="space-y-2">
+              <input
+                required={f.required}
+                value={values[f.name] ?? ''}
+                onChange={(e) => set(f.name, e.target.value)}
+                placeholder="clique no mapa ou digite: -22.19, -48.79"
+                className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
+              />
+              <PointPicker value={values[f.name] ?? ''} onChange={(v) => set(f.name, v)} />
+              <p className="text-xs text-slate-400">Clique no mapa para marcar o ponto e capturar a coordenada.</p>
+            </div>
           ) : (
             <input
               required={f.required}
               value={values[f.name] ?? ''}
               onChange={(e) => set(f.name, e.target.value)}
-              placeholder={f.type === 'point' ? 'ex.: -22.19, -48.79' : ''}
               className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
             />
           )}
