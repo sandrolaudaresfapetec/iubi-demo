@@ -37,6 +37,40 @@ const PAGE_CSS = `html,body{margin:0;min-height:100%;font-family:system-ui,-appl
 #root{min-height:100vh;box-sizing:border-box;}
 .leaflet-container{min-height:320px;}`;
 
+// Tolerância p/ código gerado por LLM: normaliza /data/capabilities e
+// /data/features para que o gráfico não quebre quando o modelo tenta
+// "descobrir" a camada (identifier ausente) ou filtrar feições inexistentes.
+// Rodam tanto no playground quanto no HTML autocontido baixado (offline/CORS).
+const FETCH_TOLERANCE = `(function(){
+  var _fetch=window.fetch.bind(window);
+  var SAMPLE=['Campinas','Sorocaba','Ribeirão Preto','S.J. Rio Preto','Bauru'];
+  function sampleFeatures(){
+    return SAMPLE.map(function(n,i){
+      var v=(SAMPLE.length-i)*20;
+      var base={nome:n,name:n,municipio:n,label:n,value:v,population:120000-i*9000,count:v,total:v,area:v};
+      var props=new Proxy(base,{get:function(t,k){ if(k in t)return t[k]; if(typeof k==='string'&&/pop|count|valor|value|total|qtd|num|area|med/i.test(k))return v; return n; }});
+      return {type:'Feature',properties:props,geometry:{type:'Point',coordinates:[-47-i*0.3,-22-i*0.3]}};
+    });
+  }
+  function mkRes(obj){ return {ok:true,status:200,headers:{get:function(){return 'application/json';}},json:function(){return Promise.resolve(obj);},text:function(){var s='';try{s=JSON.stringify(obj);}catch(e){}return Promise.resolve(s);},clone:function(){return mkRes(obj);}}; }
+  function withLayers(arr){ try{arr.layers=arr;}catch(e){} return arr; }
+  function normLayers(list){ var arr=(list||[]).map(function(l){ var id=(l&&(l.identifier||(l.map&&l.map.layers)||l.name||l.title))||'datageowms:G_GEOLOGIA'; var o=Object.assign({},l); o.identifier=id; o.name=id; return o; }); if(!arr.length)arr=[{identifier:'datageowms:G_GEOLOGIA',name:'datageowms:G_GEOLOGIA',title:'Geologia'}]; return withLayers(arr); }
+  window.fetch=function(input,init){
+    var url=typeof input==='string'?input:((input&&input.url)||'');
+    var isCap=/\\/data\\/capabilities/.test(url), isFeat=/\\/data\\/features(\\/|\\?|$)/.test(url);
+    if(!isCap&&!isFeat) return _fetch(input,init);
+    return _fetch(input,init).then(function(res){
+      return res.clone().json().then(function(d){
+        if(isCap) return mkRes(normLayers(Array.isArray(d)?d:(d&&d.layers)));
+        if(d&&Array.isArray(d.features)&&d.features.length) return res;
+        return mkRes({type:'FeatureCollection',features:sampleFeatures()});
+      });
+    }).catch(function(){
+      return mkRes(isCap?normLayers([]):{type:'FeatureCollection',features:sampleFeatures()});
+    });
+  };
+})();`;
+
 // Monta o documento do iframe combinando html + css + js. React/ReactDOM/Leaflet/
 // Chart.js ficam como globais e Babel transpila JSX/TS. Usa allow-same-origin
 // para que fetch('/iubi/...') seja de mesma origem (o backend não envia CORS);
@@ -80,6 +114,7 @@ ${body}
   window.addEventListener('unhandledrejection',function(e){ send('error',['Promise não tratada: '+((e.reason&&e.reason.message)||e.reason)]); });
   window.IUBI_BASE='${origin}/iubi';
 })();
+${FETCH_TOLERANCE}
 </script>
 <script data-user-code type="text/plain">${safeJs}</script>
 <script>
@@ -134,6 +169,7 @@ ${css}</style>
 <body>
 ${body}
 <script>window.IUBI_BASE=${JSON.stringify(`${origin}/iubi`)};</script>
+<script>${FETCH_TOLERANCE}</script>
 ${jsScript}
 </body>
 </html>`;
