@@ -14,10 +14,10 @@ export function Layout() {
     <div className="min-h-full flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-[1000]">
         <div className="mx-auto max-w-7xl px-4 h-16 flex items-center gap-6">
-          <NavLink to="/" className="flex items-center gap-2 shrink-0">
-            <img src="/favicon.svg" alt="IUBI" className="h-8 w-8" />
-            <div className="leading-tight">
-              <div className="font-extrabold text-iubi-800 text-lg">IUBI Demo</div>
+          <NavLink to="/" className="flex items-center gap-3 shrink-0">
+            <img src="/iubi-logo.png" alt="IUBI Geosistema" className="h-10 w-auto" />
+            <div className="leading-tight border-l border-slate-200 pl-3 hidden sm:block">
+              <div className="font-extrabold text-iubi-800 text-sm">Demo</div>
               <div className="text-[10px] uppercase tracking-wider text-slate-400">
                 Geovisualização & APIs
               </div>
