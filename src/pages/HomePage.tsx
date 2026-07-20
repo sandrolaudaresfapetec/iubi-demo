@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Map, LayoutDashboard, BarChart3, Bot, ArrowRight, Server, CheckCircle2, XCircle } from 'lucide-react';
+import { Map, LayoutDashboard, Bot, ArrowRight, Server, CheckCircle2, XCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useConnections } from '../lib/hooks';
 import { getAiHealth } from '../lib/chat';
@@ -18,12 +18,6 @@ const features = [
     icon: LayoutDashboard,
     title: 'Contextos',
     desc: 'Navegue pelos contextos salvos (WEBMAP, DASHBOARD, FORM...) do serviço de contexto do IUBI.',
-  },
-  {
-    to: '/estatisticas',
-    icon: BarChart3,
-    title: 'Estatísticas',
-    desc: 'Rode agregações (Count, Média, Máx...) sobre atributos de camadas e visualize em gráficos.',
   },
   {
     to: '/copilot',

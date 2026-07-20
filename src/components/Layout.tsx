@@ -1,12 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Map, LayoutDashboard, BarChart3, Bot, Globe2 } from 'lucide-react';
+import { Map, LayoutDashboard, Bot, Globe2 } from 'lucide-react';
 import { IUBI_BASE_URL } from '../lib/config';
 
 const navItems = [
   { to: '/', label: 'Início', icon: Globe2, end: true },
   { to: '/mapa', label: 'Explorador de Mapa', icon: Map },
   { to: '/contextos', label: 'Contextos', icon: LayoutDashboard },
-  { to: '/estatisticas', label: 'Estatísticas', icon: BarChart3 },
   { to: '/copilot', label: 'IUBI Copilot', icon: Bot },
 ];
 
