@@ -43,7 +43,9 @@ const PAGE_CSS = `html,body{margin:0;min-height:100%;font-family:system-ui,-appl
 // é código do próprio demo gerado pelo Copilot, então o trade-off é aceitável.
 function buildSrcDoc(files: PlaygroundFile[], origin: string): string {
   const html = pick(files, 'html');
-  const body = html ? bodyMarkup(html.content) : '<div id="root"></div>';
+  let body = html ? bodyMarkup(html.content) : '<div id="root"></div>';
+  // Garante um contêiner #root caso o código monte React nele.
+  if (!/id=["']root["']/.test(body)) body += '\n<div id="root"></div>';
   const css = joinBy(files, ['css']);
   const js = joinBy(files, JS_LANGS);
   const safeJs = js.replace(/<\/script>/gi, '<\\/script>');
@@ -89,7 +91,9 @@ ${body}
     var stripped=raw
       .replace(/^\\s*import\\s.*$/gm,'')
       .replace(/^\\s*export\\s+default\\s+/gm,'')
-      .replace(/^\\s*export\\s+/gm,'');
+      .replace(/^\\s*export\\s+/gm,'')
+      .replace(/^\\s*(?:const|let|var)\\s+IUBI_BASE\\s*=.*$/gm,'')
+      .replace(/https?:\\/\\/100\\.\\d+\\.\\d+\\.\\d+(?::\\d+)?/g, window.IUBI_BASE);
     var out=Babel.transform(stripped,{presets:['react',['typescript',{allExtensions:true,isTSX:true}]],filename:'playground.tsx'}).code;
     (0,eval)(out);
   }catch(err){ console.error((err&&err.message)||String(err)); }
