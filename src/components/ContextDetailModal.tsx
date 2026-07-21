@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   Loader2,
   Table as TableIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useContext, useContexts } from '../lib/hooks';
 import { submitFormEntry, FORM_SUBMISSION_TAG } from '../lib/iubi';
@@ -72,13 +74,19 @@ export const TYPE_META = {
 
 function WebmapView({ content }: { content: WebmapContent }) {
   const layers = content.layers ?? [];
+  // Visibilidade controlada pelo usuário (inicia com o que o contexto define).
+  const [visibleMap, setVisibleMap] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(layers.map((l, i) => [i, l.visible !== false])),
+  );
+  const toggle = (i: number) => setVisibleMap((prev) => ({ ...prev, [i]: !prev[i] }));
+
   return (
     <div className="space-y-3">
       <ContextMap
-        layers={layers.map((l) => ({
+        layers={layers.map((l, i) => ({
           connection: l.connection,
           layer: l.layer,
-          visible: l.visible,
+          visible: visibleMap[i],
           opacity: l.opacity,
         }))}
         center={content.center}
@@ -86,16 +94,32 @@ function WebmapView({ content }: { content: WebmapContent }) {
         height={320}
       />
       <ul className="space-y-2">
-        {layers.map((l, i) => (
-          <li key={i} className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3">
-            <Layers size={16} className="mt-0.5 shrink-0 text-iubi-600" />
-            <div className="min-w-0 flex-1">
-              <div className="font-medium text-slate-800">{l.title || l.layer}</div>
-              <div className="text-xs text-slate-400">Fonte: {l.connection}</div>
-            </div>
-            <Badge tone={l.visible ? 'green' : 'slate'}>{l.visible ? 'Visível' : 'Oculta'}</Badge>
-          </li>
-        ))}
+        {layers.map((l, i) => {
+          const on = visibleMap[i];
+          return (
+            <li key={i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+              <Layers size={16} className="shrink-0 text-iubi-600" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-slate-800">{l.title || l.layer}</div>
+                <div className="text-xs text-slate-400">Fonte: {l.connection}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                aria-pressed={on}
+                title={on ? 'Ocultar camada' : 'Mostrar camada'}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  on
+                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {on ? <Eye size={14} /> : <EyeOff size={14} />}
+                {on ? 'Visível' : 'Oculta'}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
