@@ -22,11 +22,13 @@ import {
   ChevronRight,
   CheckCircle2,
   Loader2,
+  Table as TableIcon,
 } from 'lucide-react';
 import { useContext, useContexts } from '../lib/hooks';
 import { submitFormEntry, FORM_SUBMISSION_TAG } from '../lib/iubi';
 import { ContextMap } from './ContextMap';
-import { PointPicker } from './PointPicker';
+import { SubmissionFields } from './SubmissionFields';
+import { FormSubmissionsTable } from './FormSubmissionsTable';
 import { StateWrapper, Badge } from './ui';
 import type {
   ContextSummary,
@@ -158,23 +160,30 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   const [values, setValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showTable, setShowTable] = useState(false);
 
   const submissionsQuery = useContexts('FORM');
   const submissions = useMemo(() => {
     const tag = `${FORM_SUBMISSION_TAG}:${summary.id}`;
-    return (submissionsQuery.data ?? [])
-      .filter((c) => c.description?.startsWith(tag))
-      .sort((a, b) => (a.lastModification < b.lastModification ? 1 : -1));
+    return (submissionsQuery.data ?? []).filter((c) => c.description?.startsWith(tag));
   }, [submissionsQuery.data, summary.id]);
 
   const set = (name: string, v: string) => setValues((prev) => ({ ...prev, [name]: v }));
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const missingGeom = fields.find(
+      (f) => (f.type === 'point' || f.type === 'geometry') && f.required && !(values[f.name] ?? '').trim(),
+    );
+    if (missingGeom) {
+      setStatus('error');
+      setErrorMsg(`Marque a geometria no mapa (campo "${missingGeom.label}").`);
+      return;
+    }
     setStatus('saving');
     setErrorMsg(null);
     try {
-      await submitFormEntry(summary.id, summary.title, values);
+      await submitFormEntry(summary.id, summary.title, values, fields);
       setStatus('done');
       setValues({});
       await qc.invalidateQueries({ queryKey: ['contexts', 'FORM'] });
@@ -186,89 +195,35 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   };
 
   return (
-    <form className="space-y-3" onSubmit={onSubmit}>
-      {fields.map((f, i) => (
-        <div key={i}>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            {f.label}
-            {f.required && <span className="ml-1 text-rose-500">*</span>}
-          </label>
-          {f.type === 'textarea' ? (
-            <textarea
-              rows={2}
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            />
-          ) : f.type === 'select' ? (
-            <select
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            >
-              <option value="">Selecione…</option>
-              {(f.options ?? []).map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          ) : f.type === 'point' ? (
-            <div className="space-y-2">
-              <input
-                required={f.required}
-                value={values[f.name] ?? ''}
-                onChange={(e) => set(f.name, e.target.value)}
-                placeholder="clique no mapa ou digite: -22.19, -48.79"
-                className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-              />
-              <PointPicker value={values[f.name] ?? ''} onChange={(v) => set(f.name, v)} />
-              <p className="text-xs text-slate-400">Clique no mapa para marcar o ponto e capturar a coordenada.</p>
-            </div>
-          ) : (
-            <input
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            />
-          )}
-        </div>
-      ))}
+    <>
+      <form className="space-y-3" onSubmit={onSubmit}>
+        <SubmissionFields fields={fields} values={values} onChange={set} />
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={status === 'saving'}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-2 text-sm font-semibold text-white hover:bg-iubi-700 disabled:opacity-60"
-        >
-          {status === 'saving' ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-          Enviar (grava no PostGIS)
-        </button>
-        {status === 'done' && <span className="text-sm text-emerald-600">Registro salvo no PostGIS.</span>}
-        {status === 'error' && <span className="text-sm text-rose-600">Falha ao salvar: {errorMsg}</span>}
-      </div>
-
-      <div className="border-t border-slate-100 pt-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Envios gravados ({submissions.length})
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={status === 'saving'}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-2 text-sm font-semibold text-white hover:bg-iubi-700 disabled:opacity-60"
+          >
+            {status === 'saving' ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+            Enviar (grava no PostGIS)
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowTable(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            <TableIcon size={15} /> Tabela de testes ({submissions.length})
+          </button>
+          {status === 'done' && <span className="text-sm text-emerald-600">Registro salvo no PostGIS.</span>}
+          {status === 'error' && <span className="text-sm text-rose-600">Falha ao salvar: {errorMsg}</span>}
         </div>
-        {submissions.length === 0 ? (
-          <p className="text-xs text-slate-400">Nenhum envio ainda — preencha e envie o formulário.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {submissions.slice(0, 8).map((s) => (
-              <li key={s.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <span className="font-medium text-slate-700">{s.title}</span>
-                <span className="ml-2 text-xs text-slate-400">
-                  {new Date(s.lastModification).toLocaleString('pt-BR')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </form>
+      </form>
+
+      {showTable && (
+        <FormSubmissionsTable form={summary} fields={fields} onClose={() => setShowTable(false)} />
+      )}
+    </>
   );
 }
 

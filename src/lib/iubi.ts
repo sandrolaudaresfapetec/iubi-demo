@@ -1,6 +1,7 @@
 // Cliente das APIs REST do IUBI. Cada função mapeia para um endpoint dos
 // serviços catalog / context / map-render / ogc.
 import { SERVICES } from './config';
+import { parseGeometry, toGeoJSON, type GeoJSONGeometry } from './geometry';
 import type {
   AggregationPayload,
   AggregationResult,
@@ -8,6 +9,7 @@ import type {
   ContextSummary,
   ContextType,
   FeatureCollection,
+  FormField,
   LayerCapability,
   LayerSchema,
   StatisticsCapabilities,
@@ -134,23 +136,78 @@ export function getContext(type: ContextType, ctxId: string): Promise<ContextDet
 // Prefixo usado na descrição para distinguir envios de formulário dos modelos.
 export const FORM_SUBMISSION_TAG = '[envio]';
 
+function geometryFieldName(fields: FormField[]): string | undefined {
+  return fields.find((f) => f.type === 'point' || f.type === 'geometry')?.name;
+}
+
+// Extrai a geometria (GeoJSON) do campo geométrico do formulário, normalizando
+// tanto o novo formato GeoJSON quanto o antigo texto "lat, lng".
+function extractGeometry(
+  values: Record<string, string>,
+  fields: FormField[],
+): { field?: string; geometry?: GeoJSONGeometry } {
+  const field = geometryFieldName(fields);
+  if (!field) return {};
+  const parsed = parseGeometry(values[field] ?? '');
+  if (!parsed) return { field };
+  const geometry = toGeoJSON(parsed.kind, parsed.latlngs) ?? undefined;
+  return { field, geometry };
+}
+
+function submissionBody(
+  formId: string,
+  formTitle: string,
+  values: Record<string, string>,
+  fields: FormField[],
+  createdAt: string,
+) {
+  const nome = values.nome || Object.values(values)[0] || 'Sem nome';
+  const when = new Date().toLocaleString('pt-BR');
+  const { field, geometry } = extractGeometry(values, fields);
+  return {
+    title: `Envio: ${nome}`,
+    description: `${FORM_SUBMISSION_TAG}:${formId} ${formTitle} · ${when}`,
+    color: '#d97706',
+    type: 'FORM' as const,
+    context: { submission: true, formId, values, geometry, geometryField: field, createdAt },
+  };
+}
+
 // Grava um envio de formulário como um contexto FORM no PostGIS do backend.
 export function submitFormEntry(
   formId: string,
   formTitle: string,
   values: Record<string, string>,
+  fields: FormField[],
 ): Promise<ContextDetail> {
-  const nome = values.nome || Object.values(values)[0] || 'Sem nome';
-  const when = new Date().toLocaleString('pt-BR');
   return getJson<ContextDetail>(`${SERVICES.context}/contents/FORM`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: `Envio: ${nome}`,
-      description: `${FORM_SUBMISSION_TAG}:${formId} ${formTitle} · ${when}`,
-      color: '#d97706',
-      type: 'FORM',
-      context: { submission: true, formId, values, createdAt: new Date().toISOString() },
-    }),
+    body: JSON.stringify(submissionBody(formId, formTitle, values, fields, new Date().toISOString())),
   });
+}
+
+// Atualiza um envio existente (CRUD — editar) mantendo a data de criação.
+export function updateFormEntry(
+  ctxId: string,
+  formId: string,
+  formTitle: string,
+  values: Record<string, string>,
+  fields: FormField[],
+  createdAt: string,
+): Promise<ContextDetail> {
+  return getJson<ContextDetail>(`${SERVICES.context}/contents/FORM/${ctxId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(submissionBody(formId, formTitle, values, fields, createdAt)),
+  });
+}
+
+// Exclui um envio (CRUD — excluir).
+export async function deleteContext(ctxId: string): Promise<void> {
+  const res = await fetch(`${SERVICES.context}/contents/${ctxId}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ''}`);
+  }
 }
