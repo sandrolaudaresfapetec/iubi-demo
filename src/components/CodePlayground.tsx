@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Play, X, RotateCcw, Terminal, Download, FileCode, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, X, RotateCcw, Terminal, Download, FileCode, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { JS_LANGS, type FileLang, type PlaygroundFile } from '../lib/playground';
 
 interface LogEntry {
@@ -251,6 +251,14 @@ export function CodePlayground({
     download('iubi-playground.html', buildStandalone(files, window.location.origin), 'text/html');
   }, [files]);
 
+  const openInNewTab = useCallback(() => {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(buildSrcDoc(files, window.location.origin));
+    win.document.close();
+  }, [files]);
+
   const canDownloadActive = useMemo(() => active && active.content.trim().length > 0, [active]);
   const errorCount = useMemo(() => logs.filter((l) => l.level === 'error').length, [logs]);
 
@@ -299,6 +307,13 @@ export function CodePlayground({
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-iubi-700"
           >
             <Play size={14} /> Executar
+          </button>
+          <button
+            onClick={openInNewTab}
+            title="Abrir o resultado em uma nova aba (tela cheia, sem corte)"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <ExternalLink size={14} /> Abrir em nova aba
           </button>
           <button
             onClick={downloadAll}
@@ -358,8 +373,15 @@ export function CodePlayground({
           </div>
 
           <div className="flex min-h-0 flex-col">
-            <div className="border-b border-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Resultado
+            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <span>Resultado</span>
+              <button
+                onClick={openInNewTab}
+                title="Abrir em nova aba (tela cheia)"
+                className="inline-flex items-center gap-1 normal-case tracking-normal text-iubi-600 hover:text-iubi-700"
+              >
+                <ExternalLink size={13} /> Nova aba
+              </button>
             </div>
             <div className="relative min-h-0 flex-1 bg-slate-50">
               {srcDoc ? (
