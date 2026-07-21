@@ -102,6 +102,10 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
   para montar gráficos. O GeoServer público não expõe estatísticas (WPS); portanto
   use DADOS DE EXEMPLO em arrays fixos (labels/valores) no gráfico.
 - NUNCA use import/require, e não use /statistics.
+- NUNCA adicione L.marker/marcadores com coordenadas que você não tem. Os arrays
+  do gráfico (rótulos/valores) NÃO contêm latitude/longitude. Para "destacar" itens
+  no mapa, use APENAS "cql_filter" na camada WMS — nunca um loop de L.marker.
+- NÃO redefina IUBI_BASE (ela já é global). Nunca use URLs internas (100.x, 127.0.0.1).
 
 ## MODELO OBRIGATÓRIO (copie e adapte apenas rótulos/dados — este roda de verdade)
 \`\`\`html file=index.html
