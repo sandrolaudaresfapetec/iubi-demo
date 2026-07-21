@@ -209,6 +209,16 @@ function download(name: string, content: string, type = 'text/plain') {
   URL.revokeObjectURL(url);
 }
 
+// Abre o projeto gerado em uma nova aba, em tela cheia (sem o corte do modal).
+// eslint-disable-next-line react-refresh/only-export-components
+export function openProjectInNewTab(files: PlaygroundFile[]) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.open();
+  win.document.write(buildSrcDoc(files, window.location.origin));
+  win.document.close();
+}
+
 const LEVEL_STYLE: Record<LogEntry['level'], string> = {
   log: 'text-slate-200',
   info: 'text-sky-300',
@@ -252,11 +262,7 @@ export function CodePlayground({
   }, [files]);
 
   const openInNewTab = useCallback(() => {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.open();
-    win.document.write(buildSrcDoc(files, window.location.origin));
-    win.document.close();
+    openProjectInNewTab(files);
   }, [files]);
 
   const canDownloadActive = useMemo(() => active && active.content.trim().length > 0, [active]);

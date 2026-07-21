@@ -62,7 +62,7 @@ function center2(value: unknown): [number, number] | undefined {
   return undefined;
 }
 
-const TYPE_META = {
+export const TYPE_META = {
   WEBMAP: { icon: MapIcon, label: 'Mapa interativo' },
   DASHBOARD: { icon: LayoutDashboard, label: 'Painel' },
   FORM: { icon: ClipboardList, label: 'Formulário' },
@@ -333,7 +333,7 @@ function StoryMapView({ content }: { content: StoryMapContent }) {
   );
 }
 
-function ContentView({
+export function ContentView({
   summary,
   content,
 }: {

@@ -1,18 +1,20 @@
 import { useState } from 'react';
-import { LayoutDashboard, Search, Calendar, Tag } from 'lucide-react';
+import { LayoutDashboard, Search, Calendar, Tag, ExternalLink } from 'lucide-react';
 import { useContexts } from '../lib/hooks';
 import { FORM_SUBMISSION_TAG } from '../lib/iubi';
 import { StateWrapper, Badge } from '../components/ui';
-import { ContextDetailModal } from '../components/ContextDetailModal';
-import type { ContextSummary, ContextType } from '../lib/types';
+import type { ContextType } from '../lib/types';
 
 const TYPES: ContextType[] = ['WEBMAP', 'DASHBOARD', 'FORM', 'REPORT', 'STORY_MAP'];
 
 export function ContextsPage() {
   const [type, setType] = useState<ContextType>('WEBMAP');
   const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<ContextSummary | null>(null);
   const contexts = useContexts(type, q.trim() || undefined);
+
+  // Abre o resultado do contexto em uma nova aba (tela cheia, sem corte).
+  const openContext = (ctxType: ContextType, id: string) =>
+    window.open(`/contexto/${ctxType}/${id}`, '_blank', 'noopener,noreferrer');
   // Esconde os envios de formulário (gravados como contextos FORM) da listagem.
   const items = (contexts.data ?? []).filter(
     (c) => !c.description?.startsWith(FORM_SUBMISSION_TAG),
@@ -68,7 +70,8 @@ export function ContextsPage() {
             <button
               key={c.id}
               type="button"
-              onClick={() => setSelected(c)}
+              onClick={() => openContext(c.type, c.id)}
+              title="Abrir em nova aba"
               className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 text-left transition-shadow hover:border-iubi-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-iubi-300"
             >
               <div className="flex items-start gap-2">
@@ -76,7 +79,7 @@ export function ContextsPage() {
                   className="mt-1 h-3 w-3 shrink-0 rounded-full"
                   style={{ background: c.color || '#94a3b8' }}
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-slate-800 truncate" title={c.title}>
                     {c.title || '(sem título)'}
                   </h3>
@@ -84,6 +87,7 @@ export function ContextsPage() {
                     <p className="text-sm text-slate-500 line-clamp-2">{c.description}</p>
                   )}
                 </div>
+                <ExternalLink size={15} className="mt-0.5 shrink-0 text-slate-300" />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                 <Badge tone="blue">
@@ -102,8 +106,6 @@ export function ContextsPage() {
           ))}
         </div>
       </StateWrapper>
-
-      {selected && <ContextDetailModal summary={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
