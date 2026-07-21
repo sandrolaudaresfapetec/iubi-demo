@@ -1,7 +1,53 @@
+import { useState } from 'react';
 import { MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet';
 import type { WMSParams } from 'leaflet';
 import { renderMapBaseUrl, legendUrl } from '../lib/iubi';
 import { useConnections } from '../lib/hooks';
+import type { Connection } from '../lib/types';
+
+// GetLegendGraphic direto no GeoServer da conexão — usado como fallback quando o
+// proxy de legenda do backend falha (algumas capabilities trazem LegendURL sem
+// esquema, o que quebra o proxy). Imagens cross-origin não exigem CORS.
+function directLegendUrl(conn: Connection, layer: string): string | undefined {
+  if (!conn.serviceUrl) return undefined;
+  const sub = (conn.configJson?.subPath as string) || 'ows';
+  const base = `${conn.serviceUrl.replace(/\/+$/, '')}/${sub}`;
+  const qs = new URLSearchParams({
+    service: 'WMS',
+    version: '1.3.0',
+    request: 'GetLegendGraphic',
+    format: 'image/png',
+    transparent: 'true',
+    layer,
+  });
+  return `${base}?${qs.toString()}`;
+}
+
+// Legenda de uma camada: tenta o proxy same-origin do backend e, em erro, cai
+// para o GeoServer direto; se ambos falharem, o quadro é ocultado.
+function LegendImg({ connId, conn, layer }: { connId: string; conn?: Connection; layer: string }) {
+  const [src, setSrc] = useState(legendUrl(connId, layer));
+  const [triedDirect, setTriedDirect] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt={`Legenda da camada ${layer}`}
+      className="max-w-full rounded bg-white"
+      loading="lazy"
+      onError={() => {
+        const direct = conn ? directLegendUrl(conn, layer) : undefined;
+        if (!triedDirect && direct) {
+          setTriedDirect(true);
+          setSrc(direct);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
 
 export interface ContextMapLayer {
   connection?: string;
@@ -28,20 +74,23 @@ interface ContextMapProps {
 export function ContextMap({ layers, center, zoom, height = 280, mapKey }: ContextMapProps) {
   const { data: connections, isLoading } = useConnections();
 
-  const resolve = (title?: string): string | undefined => {
+  const resolveConn = (title?: string): Connection | undefined => {
     if (!connections) return undefined;
     if (title) {
       const byTitle = connections.find((c) => c.title === title);
-      if (byTitle) return byTitle.id;
+      if (byTitle) return byTitle;
     }
     // fallback: primeira conexão GIS disponível
-    return connections.find((c) => c.type === 'GIS_SERVER')?.id ?? connections[0]?.id;
+    return connections.find((c) => c.type === 'GIS_SERVER') ?? connections[0];
   };
 
   const visible = layers
     .filter((l) => l.visible !== false)
-    .map((l) => ({ ...l, connId: resolve(l.connection) }))
-    .filter((l): l is ContextMapLayer & { connId: string } => Boolean(l.connId));
+    .map((l) => {
+      const conn = resolveConn(l.connection);
+      return { ...l, connId: conn?.id, conn };
+    })
+    .filter((l): l is ContextMapLayer & { connId: string; conn: Connection } => Boolean(l.connId));
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-200" style={{ height }}>
@@ -87,15 +136,7 @@ export function ContextMap({ layers, center, zoom, height = 280, mapKey }: Conte
               <div className="space-y-1.5">
                 {visible.map((l, i) => (
                   <div key={`legend:${l.connId}:${l.layer}:${i}`}>
-                    <img
-                      src={legendUrl(l.connId, l.layer)}
-                      alt={`Legenda da camada ${l.layer}`}
-                      className="max-w-full"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
-                      }}
-                    />
+                    <LegendImg connId={l.connId} conn={l.conn} layer={l.layer} />
                   </div>
                 ))}
               </div>
