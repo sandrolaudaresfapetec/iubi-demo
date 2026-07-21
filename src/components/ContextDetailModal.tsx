@@ -141,7 +141,7 @@ function DashboardView({ content }: { content: DashboardContent }) {
             {w.type === 'chart' && <ChartWidget data={w.data} title={w.title} />}
             {w.type === 'map' && (
               <ContextMap
-                layers={[{ connection: w.connection, layer: w.layer ?? '' }]}
+                layers={[{ connection: w.connection, layer: w.layer ?? '', cql: w.cql }]}
                 center={content.center}
                 zoom={content.zoom}
                 height={260}
@@ -379,6 +379,7 @@ function ContentView({
                 chart: str(w.chart),
                 connection: str(w.connection),
                 layer: str(w.layer),
+                cql: str(w.cql),
                 value: typeof w.value === 'number' || typeof w.value === 'string' ? w.value : undefined,
                 data: labels.length ? { labels, values: vals } : undefined,
               };

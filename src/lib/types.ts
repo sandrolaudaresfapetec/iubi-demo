@@ -115,6 +115,7 @@ export interface DashboardWidget {
   chart?: string;
   connection?: string;
   layer?: string;
+  cql?: string;
   value?: number | string;
   data?: ChartData;
 }

@@ -1,4 +1,5 @@
 import { MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet';
+import type { WMSParams } from 'leaflet';
 import { renderMapBaseUrl } from '../lib/iubi';
 import { useConnections } from '../lib/hooks';
 
@@ -7,6 +8,11 @@ export interface ContextMapLayer {
   layer: string;
   visible?: boolean;
   opacity?: number;
+  cql?: string;
+}
+
+interface WmsParamsWithCql extends WMSParams {
+  cql_filter?: string;
 }
 
 interface ContextMapProps {
@@ -55,14 +61,18 @@ export function ContextMap({ layers, center, zoom, height = 280, mapKey }: Conte
           {visible.map((l, i) => {
             const connId = resolve(l.connection);
             if (!connId) return null;
+            const params: WmsParamsWithCql = {
+              layers: l.layer,
+              format: 'image/png',
+              transparent: true,
+              version: '1.3.0',
+            };
+            if (l.cql) params.cql_filter = l.cql;
             return (
               <WMSTileLayer
-                key={`${connId}:${l.layer}:${i}`}
+                key={`${connId}:${l.layer}:${l.cql ?? ''}:${i}`}
                 url={renderMapBaseUrl(connId)}
-                layers={l.layer}
-                format="image/png"
-                transparent
-                version="1.3.0"
+                params={params}
                 opacity={l.opacity ?? 0.8}
               />
             );
