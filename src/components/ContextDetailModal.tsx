@@ -9,6 +9,10 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from 'recharts';
 import {
   X,
@@ -141,6 +145,61 @@ function ChartWidget({ data, title }: { data?: { labels: string[]; values: numbe
           <Bar dataKey="value" name={title || 'Valor'} fill="#2563eb" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4f46e5'];
+
+function PieChartWidget({ data, title }: { data?: { labels: string[]; values: number[] }; title?: string }) {
+  if (!data || data.labels.length === 0) {
+    return <div className="text-xs text-slate-400">Sem dados para o gráfico.</div>;
+  }
+  const rows = data.labels.map((label, i) => ({ name: label, value: data.values[i] ?? 0 }));
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+            {rows.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: 11 }} />
+        </PieChart>
+      </ResponsiveContainer>
+      {title && <div className="mt-1 text-center text-xs text-slate-400">{title}</div>}
+    </div>
+  );
+}
+
+function DataTable({ columns, rows }: { columns?: string[]; rows?: string[][] }) {
+  if (!columns || columns.length === 0) return null;
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+            {columns.map((c) => (
+              <th key={c} className="px-3 py-2 font-medium">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(rows ?? []).map((row, ri) => (
+            <tr key={ri} className="border-b border-slate-100 last:border-0">
+              {row.map((cell, ci) => (
+                <td key={ci} className="px-3 py-2 text-slate-700">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -311,15 +370,26 @@ function StoryMapView({ content }: { content: StoryMapContent }) {
   const [idx, setIdx] = useState(0);
   if (slides.length === 0) return null;
   const s = slides[Math.min(idx, slides.length - 1)];
+  const kind = s.type ?? 'map';
   return (
     <div className="space-y-3">
-      <ContextMap
-        mapKey={idx}
-        layers={[{ connection: s.connection, layer: s.layer ?? '' }]}
-        center={s.center}
-        zoom={s.zoom}
-        height={300}
-      />
+      {kind === 'chart' ? (
+        s.chartType === 'pie' ? (
+          <PieChartWidget data={s.data} />
+        ) : (
+          <ChartWidget data={s.data} />
+        )
+      ) : kind === 'table' ? (
+        <DataTable columns={s.columns} rows={s.rows} />
+      ) : (
+        <ContextMap
+          mapKey={idx}
+          layers={[{ connection: s.connection, layer: s.layer ?? '', cql: s.cql }]}
+          center={s.center}
+          zoom={s.zoom}
+          height={300}
+        />
+      )}
       <div className="rounded-xl border-l-4 border-iubi-500 bg-white p-3 shadow-sm">
         <div className="text-xs font-semibold uppercase tracking-wide text-iubi-600">
           Capítulo {idx + 1} de {slides.length}
@@ -452,14 +522,33 @@ export function ContentView({
       return (
         <StoryMapView
           content={{
-            slides: asArray(rec.slides).map((s) => ({
-              title: str(s.title) ?? '',
-              text: str(s.text),
-              connection: str(s.connection),
-              layer: str(s.layer),
-              center: center2(s.center),
-              zoom: num(s.zoom),
-            })),
+            slides: asArray(rec.slides).map((s) => {
+              const d = asRecord(s.data);
+              const labels = Array.isArray(d.labels)
+                ? d.labels.filter((x): x is string => typeof x === 'string')
+                : [];
+              const vals = Array.isArray(d.values)
+                ? d.values.filter((x): x is number => typeof x === 'number')
+                : [];
+              return {
+                title: str(s.title) ?? '',
+                text: str(s.text),
+                type: str(s.type),
+                connection: str(s.connection),
+                layer: str(s.layer),
+                cql: str(s.cql),
+                center: center2(s.center),
+                zoom: num(s.zoom),
+                chartType: str(s.chartType),
+                data: labels.length ? { labels, values: vals } : undefined,
+                columns: Array.isArray(s.columns)
+                  ? s.columns.filter((c): c is string => typeof c === 'string')
+                  : undefined,
+                rows: Array.isArray(s.rows)
+                  ? s.rows.map((r) => (Array.isArray(r) ? r.map((c) => String(c)) : []))
+                  : undefined,
+              };
+            }),
           }}
         />
       );

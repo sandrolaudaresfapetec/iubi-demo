@@ -158,10 +158,19 @@ export interface ReportContent {
 export interface StorySlide {
   title: string;
   text?: string;
+  // Tipo do capítulo: 'map' (padrão), 'chart' ou 'table'.
+  type?: string;
   connection?: string;
   layer?: string;
+  cql?: string;
   center?: [number, number];
   zoom?: number;
+  // Capítulo de gráfico.
+  chartType?: string;
+  data?: ChartData;
+  // Capítulo de tabela.
+  columns?: string[];
+  rows?: string[][];
 }
 
 export interface StoryMapContent {
