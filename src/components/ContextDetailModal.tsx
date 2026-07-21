@@ -161,6 +161,7 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const submissionsQuery = useContexts('FORM');
   const submissions = useMemo(() => {
@@ -186,6 +187,7 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
       await submitFormEntry(summary.id, summary.title, values, fields);
       setStatus('done');
       setValues({});
+      setFormKey((k) => k + 1);
       await qc.invalidateQueries({ queryKey: ['contexts', 'FORM'] });
       setTimeout(() => setStatus('idle'), 2500);
     } catch (err) {
@@ -197,7 +199,7 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   return (
     <>
       <form className="space-y-3" onSubmit={onSubmit}>
-        <SubmissionFields fields={fields} values={values} onChange={set} />
+        <SubmissionFields key={formKey} fields={fields} values={values} onChange={set} />
 
         <div className="flex flex-wrap items-center gap-3">
           <button
