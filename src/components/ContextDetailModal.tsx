@@ -9,6 +9,10 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from 'recharts';
 import {
   X,
@@ -22,10 +26,15 @@ import {
   ChevronRight,
   CheckCircle2,
   Loader2,
+  Table as TableIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useContext, useContexts } from '../lib/hooks';
 import { submitFormEntry, FORM_SUBMISSION_TAG } from '../lib/iubi';
 import { ContextMap } from './ContextMap';
+import { SubmissionFields } from './SubmissionFields';
+import { FormSubmissionsTable } from './FormSubmissionsTable';
 import { StateWrapper, Badge } from './ui';
 import type {
   ContextSummary,
@@ -59,7 +68,7 @@ function center2(value: unknown): [number, number] | undefined {
   return undefined;
 }
 
-const TYPE_META = {
+export const TYPE_META = {
   WEBMAP: { icon: MapIcon, label: 'Mapa interativo' },
   DASHBOARD: { icon: LayoutDashboard, label: 'Painel' },
   FORM: { icon: ClipboardList, label: 'Formulário' },
@@ -69,13 +78,19 @@ const TYPE_META = {
 
 function WebmapView({ content }: { content: WebmapContent }) {
   const layers = content.layers ?? [];
+  // Visibilidade controlada pelo usuário (inicia com o que o contexto define).
+  const [visibleMap, setVisibleMap] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(layers.map((l, i) => [i, l.visible !== false])),
+  );
+  const toggle = (i: number) => setVisibleMap((prev) => ({ ...prev, [i]: !prev[i] }));
+
   return (
     <div className="space-y-3">
       <ContextMap
-        layers={layers.map((l) => ({
+        layers={layers.map((l, i) => ({
           connection: l.connection,
           layer: l.layer,
-          visible: l.visible,
+          visible: visibleMap[i],
           opacity: l.opacity,
         }))}
         center={content.center}
@@ -83,16 +98,32 @@ function WebmapView({ content }: { content: WebmapContent }) {
         height={320}
       />
       <ul className="space-y-2">
-        {layers.map((l, i) => (
-          <li key={i} className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3">
-            <Layers size={16} className="mt-0.5 shrink-0 text-iubi-600" />
-            <div className="min-w-0 flex-1">
-              <div className="font-medium text-slate-800">{l.title || l.layer}</div>
-              <div className="text-xs text-slate-400">Fonte: {l.connection}</div>
-            </div>
-            <Badge tone={l.visible ? 'green' : 'slate'}>{l.visible ? 'Visível' : 'Oculta'}</Badge>
-          </li>
-        ))}
+        {layers.map((l, i) => {
+          const on = visibleMap[i];
+          return (
+            <li key={i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+              <Layers size={16} className="shrink-0 text-iubi-600" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-slate-800">{l.title || l.layer}</div>
+                <div className="text-xs text-slate-400">Fonte: {l.connection}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                aria-pressed={on}
+                title={on ? 'Ocultar camada' : 'Mostrar camada'}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  on
+                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {on ? <Eye size={14} /> : <EyeOff size={14} />}
+                {on ? 'Visível' : 'Oculta'}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -118,6 +149,61 @@ function ChartWidget({ data, title }: { data?: { labels: string[]; values: numbe
   );
 }
 
+const PIE_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4f46e5'];
+
+function PieChartWidget({ data, title }: { data?: { labels: string[]; values: number[] }; title?: string }) {
+  if (!data || data.labels.length === 0) {
+    return <div className="text-xs text-slate-400">Sem dados para o gráfico.</div>;
+  }
+  const rows = data.labels.map((label, i) => ({ name: label, value: data.values[i] ?? 0 }));
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={rows} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+            {rows.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: 11 }} />
+        </PieChart>
+      </ResponsiveContainer>
+      {title && <div className="mt-1 text-center text-xs text-slate-400">{title}</div>}
+    </div>
+  );
+}
+
+function DataTable({ columns, rows }: { columns?: string[]; rows?: string[][] }) {
+  if (!columns || columns.length === 0) return null;
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+            {columns.map((c) => (
+              <th key={c} className="px-3 py-2 font-medium">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(rows ?? []).map((row, ri) => (
+            <tr key={ri} className="border-b border-slate-100 last:border-0">
+              {row.map((cell, ci) => (
+                <td key={ci} className="px-3 py-2 text-slate-700">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function DashboardView({ content }: { content: DashboardContent }) {
   const widgets = content.widgets ?? [];
   return (
@@ -138,7 +224,7 @@ function DashboardView({ content }: { content: DashboardContent }) {
             {w.type === 'chart' && <ChartWidget data={w.data} title={w.title} />}
             {w.type === 'map' && (
               <ContextMap
-                layers={[{ connection: w.connection, layer: w.layer ?? '' }]}
+                layers={[{ connection: w.connection, layer: w.layer ?? '', cql: w.cql }]}
                 center={content.center}
                 zoom={content.zoom}
                 height={260}
@@ -157,25 +243,34 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   const [values, setValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showTable, setShowTable] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const submissionsQuery = useContexts('FORM');
   const submissions = useMemo(() => {
     const tag = `${FORM_SUBMISSION_TAG}:${summary.id}`;
-    return (submissionsQuery.data ?? [])
-      .filter((c) => c.description?.startsWith(tag))
-      .sort((a, b) => (a.lastModification < b.lastModification ? 1 : -1));
+    return (submissionsQuery.data ?? []).filter((c) => c.description?.startsWith(tag));
   }, [submissionsQuery.data, summary.id]);
 
   const set = (name: string, v: string) => setValues((prev) => ({ ...prev, [name]: v }));
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const missingGeom = fields.find(
+      (f) => (f.type === 'point' || f.type === 'geometry') && f.required && !(values[f.name] ?? '').trim(),
+    );
+    if (missingGeom) {
+      setStatus('error');
+      setErrorMsg(`Marque a geometria no mapa (campo "${missingGeom.label}").`);
+      return;
+    }
     setStatus('saving');
     setErrorMsg(null);
     try {
-      await submitFormEntry(summary.id, summary.title, values);
+      await submitFormEntry(summary.id, summary.title, values, fields);
       setStatus('done');
       setValues({});
+      setFormKey((k) => k + 1);
       await qc.invalidateQueries({ queryKey: ['contexts', 'FORM'] });
       setTimeout(() => setStatus('idle'), 2500);
     } catch (err) {
@@ -185,78 +280,35 @@ function FormView({ summary, content }: { summary: ContextSummary; content: Form
   };
 
   return (
-    <form className="space-y-3" onSubmit={onSubmit}>
-      {fields.map((f, i) => (
-        <div key={i}>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            {f.label}
-            {f.required && <span className="ml-1 text-rose-500">*</span>}
-          </label>
-          {f.type === 'textarea' ? (
-            <textarea
-              rows={2}
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            />
-          ) : f.type === 'select' ? (
-            <select
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            >
-              <option value="">Selecione…</option>
-              {(f.options ?? []).map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              required={f.required}
-              value={values[f.name] ?? ''}
-              onChange={(e) => set(f.name, e.target.value)}
-              placeholder={f.type === 'point' ? 'ex.: -22.19, -48.79' : ''}
-              className="w-full rounded-lg border border-slate-300 p-2 text-sm text-slate-700 focus:border-iubi-500 focus:outline-none"
-            />
-          )}
-        </div>
-      ))}
+    <>
+      <form className="space-y-3" onSubmit={onSubmit}>
+        <SubmissionFields key={formKey} fields={fields} values={values} onChange={set} />
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={status === 'saving'}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-2 text-sm font-semibold text-white hover:bg-iubi-700 disabled:opacity-60"
-        >
-          {status === 'saving' ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-          Enviar (grava no PostGIS)
-        </button>
-        {status === 'done' && <span className="text-sm text-emerald-600">Registro salvo no PostGIS.</span>}
-        {status === 'error' && <span className="text-sm text-rose-600">Falha ao salvar: {errorMsg}</span>}
-      </div>
-
-      <div className="border-t border-slate-100 pt-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Envios gravados ({submissions.length})
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={status === 'saving'}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-2 text-sm font-semibold text-white hover:bg-iubi-700 disabled:opacity-60"
+          >
+            {status === 'saving' ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+            Enviar (grava no PostGIS)
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowTable(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            <TableIcon size={15} /> Tabela de testes ({submissions.length})
+          </button>
+          {status === 'done' && <span className="text-sm text-emerald-600">Registro salvo no PostGIS.</span>}
+          {status === 'error' && <span className="text-sm text-rose-600">Falha ao salvar: {errorMsg}</span>}
         </div>
-        {submissions.length === 0 ? (
-          <p className="text-xs text-slate-400">Nenhum envio ainda — preencha e envie o formulário.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {submissions.slice(0, 8).map((s) => (
-              <li key={s.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <span className="font-medium text-slate-700">{s.title}</span>
-                <span className="ml-2 text-xs text-slate-400">
-                  {new Date(s.lastModification).toLocaleString('pt-BR')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </form>
+      </form>
+
+      {showTable && (
+        <FormSubmissionsTable form={summary} fields={fields} onClose={() => setShowTable(false)} />
+      )}
+    </>
   );
 }
 
@@ -318,15 +370,26 @@ function StoryMapView({ content }: { content: StoryMapContent }) {
   const [idx, setIdx] = useState(0);
   if (slides.length === 0) return null;
   const s = slides[Math.min(idx, slides.length - 1)];
+  const kind = s.type ?? 'map';
   return (
     <div className="space-y-3">
-      <ContextMap
-        mapKey={idx}
-        layers={[{ connection: s.connection, layer: s.layer ?? '' }]}
-        center={s.center}
-        zoom={s.zoom}
-        height={300}
-      />
+      {kind === 'chart' ? (
+        s.chartType === 'pie' ? (
+          <PieChartWidget data={s.data} />
+        ) : (
+          <ChartWidget data={s.data} />
+        )
+      ) : kind === 'table' ? (
+        <DataTable columns={s.columns} rows={s.rows} />
+      ) : (
+        <ContextMap
+          mapKey={idx}
+          layers={[{ connection: s.connection, layer: s.layer ?? '', cql: s.cql }]}
+          center={s.center}
+          zoom={s.zoom}
+          height={300}
+        />
+      )}
       <div className="rounded-xl border-l-4 border-iubi-500 bg-white p-3 shadow-sm">
         <div className="text-xs font-semibold uppercase tracking-wide text-iubi-600">
           Capítulo {idx + 1} de {slides.length}
@@ -364,7 +427,7 @@ function StoryMapView({ content }: { content: StoryMapContent }) {
   );
 }
 
-function ContentView({
+export function ContentView({
   summary,
   content,
 }: {
@@ -410,6 +473,7 @@ function ContentView({
                 chart: str(w.chart),
                 connection: str(w.connection),
                 layer: str(w.layer),
+                cql: str(w.cql),
                 value: typeof w.value === 'number' || typeof w.value === 'string' ? w.value : undefined,
                 data: labels.length ? { labels, values: vals } : undefined,
               };
@@ -458,14 +522,33 @@ function ContentView({
       return (
         <StoryMapView
           content={{
-            slides: asArray(rec.slides).map((s) => ({
-              title: str(s.title) ?? '',
-              text: str(s.text),
-              connection: str(s.connection),
-              layer: str(s.layer),
-              center: center2(s.center),
-              zoom: num(s.zoom),
-            })),
+            slides: asArray(rec.slides).map((s) => {
+              const d = asRecord(s.data);
+              const labels = Array.isArray(d.labels)
+                ? d.labels.filter((x): x is string => typeof x === 'string')
+                : [];
+              const vals = Array.isArray(d.values)
+                ? d.values.filter((x): x is number => typeof x === 'number')
+                : [];
+              return {
+                title: str(s.title) ?? '',
+                text: str(s.text),
+                type: str(s.type),
+                connection: str(s.connection),
+                layer: str(s.layer),
+                cql: str(s.cql),
+                center: center2(s.center),
+                zoom: num(s.zoom),
+                chartType: str(s.chartType),
+                data: labels.length ? { labels, values: vals } : undefined,
+                columns: Array.isArray(s.columns)
+                  ? s.columns.filter((c): c is string => typeof c === 'string')
+                  : undefined,
+                rows: Array.isArray(s.rows)
+                  ? s.rows.map((r) => (Array.isArray(r) ? r.map((c) => String(c)) : []))
+                  : undefined,
+              };
+            }),
           }}
         />
       );

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, Send, User, Sparkles, AlertTriangle, Square, PlayCircle } from 'lucide-react';
+import { Bot, Send, User, Sparkles, AlertTriangle, Square, PlayCircle, ExternalLink } from 'lucide-react';
 import { streamChat, getAiHealth, type ChatMessage } from '../lib/chat';
 import { COPILOT_SYSTEM_PROMPT, COPILOT_SUGGESTIONS } from '../lib/copilotPrompt';
 import { Markdown } from '../components/Markdown';
-import { CodePlayground } from '../components/CodePlayground';
+import { CodePlayground, openProjectInNewTab } from '../components/CodePlayground';
 import { parseProjectFiles, hasRunnableProject, type PlaygroundFile } from '../lib/playground';
 
 export function CopilotPage() {
@@ -140,13 +140,22 @@ export function CopilotPage() {
                     const files = parseProjectFiles(m.content);
                     if (!hasRunnableProject(files)) return null;
                     return (
-                      <button
-                        type="button"
-                        onClick={() => setPlaygroundFiles(files)}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-iubi-700"
-                      >
-                        <PlayCircle size={15} /> Abrir no Playground ({files.length} arquivo{files.length > 1 ? 's' : ''})
-                      </button>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openProjectInNewTab(files)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-iubi-700"
+                        >
+                          <ExternalLink size={15} /> Ver resultado em nova aba
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPlaygroundFiles(files)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          <PlayCircle size={15} /> Playground ({files.length} arquivo{files.length > 1 ? 's' : ''})
+                        </button>
+                      </div>
                     );
                   })()}
                 </>

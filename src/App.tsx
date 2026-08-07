@@ -3,11 +3,13 @@ import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { MapExplorerPage } from './pages/MapExplorerPage';
 import { ContextsPage } from './pages/ContextsPage';
+import { ContextViewPage } from './pages/ContextViewPage';
 import { CopilotPage } from './pages/CopilotPage';
 
 export default function App() {
   return (
     <Routes>
+      <Route path="contexto/:type/:id" element={<ContextViewPage />} />
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="mapa" element={<MapExplorerPage />} />

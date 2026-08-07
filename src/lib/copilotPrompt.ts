@@ -75,15 +75,18 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
 - Acesse as APIs pelo caminho de mesma origem "/iubi/..." — a base também está
   na global "IUBI_BASE". Ex.: camada WMS => IUBI_BASE + '/map-render/v1/<conn>/render/map'.
 - Descubra os IDs de conexão em GET /iubi/catalog/v1/connections. Referência atual:
+  IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775" (camada de patrimônio
+  "idesp_acervo:bem_tomb_a_2023_01_v2" = Bens Tombados pelo Condephaat);
   DataGeo-SP = "a9ce6906-9a5d-4d2a-8cf2-5d558de2cd41" (camadas ex.:
-  datageowms:G_GEOLOGIA, datageowms:G_PedologicoIAC, datageo:G_AIA_FLORA);
-  IDESP-SP = "00ccec54-d673-4b5b-8255-0b91a78e8775". As camadas cobrem o Estado
+  datageowms:G_GEOLOGIA, datageowms:G_PedologicoIAC). As camadas cobrem o Estado
   de São Paulo (centralize o mapa em [-22.2, -48.7], zoom ~6).
 - Mapas Leaflet: SEMPRE adicione primeiro a camada base OSM
   "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')" e depois a
   camada WMS "L.tileLayer.wms(IUBI_BASE + '/map-render/v1/<conn>/render/map',
-  { layers: 'datageowms:G_GEOLOGIA', format: 'image/png', transparent: true, version: '1.3.0' })".
+  { layers: 'idesp_acervo:bem_tomb_a_2023_01_v2', cql_filter: "...", format: 'image/png', transparent: true, version: '1.3.0' })".
   Dê ao contêiner do mapa uma altura (ex.: #map{height:420px}).
+- Quando o gráfico se referir a uma camada do mapa, ASSOCIE os dois: filtre a
+  camada WMS com "cql_filter" e use no gráfico exatamente os mesmos itens do filtro.
 - Gráficos: use SEMPRE um <canvas> (nunca <div>) e a sintaxe do Chart.js v4:
   "new Chart(document.getElementById('grafico'), { type:'bar', data:{...},
   options:{ scales:{ y:{ beginAtZero:true } } } })".
@@ -91,7 +94,7 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
 
 ## O QUE NUNCA FAZER (senão o exemplo quebra no playground)
 - NUNCA busque "/map-render/v1/<conn>/data/capabilities" para "descobrir" ou
-  filtrar a camada. Use o NOME da camada diretamente (ex.: 'datageowms:G_GEOLOGIA').
+  filtrar a camada. Use o NOME da camada diretamente (ex.: 'idesp_acervo:bem_tomb_a_2023_01_v2').
   A resposta de capabilities NÃO tem o formato { layers: [...] } com "identifier".
 - NUNCA coloque a criação do mapa (L.map) dentro de um ".then()" de fetch. Crie o
   mapa e adicione OSM + WMS DIRETAMENTE, sem depender de nenhuma chamada de rede.
@@ -99,10 +102,14 @@ O demo junta tudo e roda no playground, mostrando o resultado final. Regras:
   para montar gráficos. O GeoServer público não expõe estatísticas (WPS); portanto
   use DADOS DE EXEMPLO em arrays fixos (labels/valores) no gráfico.
 - NUNCA use import/require, e não use /statistics.
+- NUNCA adicione L.marker/marcadores com coordenadas que você não tem. Os arrays
+  do gráfico (rótulos/valores) NÃO contêm latitude/longitude. Para "destacar" itens
+  no mapa, use APENAS "cql_filter" na camada WMS — nunca um loop de L.marker.
+- NÃO redefina IUBI_BASE (ela já é global). Nunca use URLs internas (100.x, 127.0.0.1).
 
 ## MODELO OBRIGATÓRIO (copie e adapte apenas rótulos/dados — este roda de verdade)
 \`\`\`html file=index.html
-<h2>Painel DataGeo-SP</h2>
+<h2>Bens Tombados pelo Condephaat — Top 10 municípios</h2>
 <div id="map"></div>
 <canvas id="grafico"></canvas>
 \`\`\`
@@ -112,28 +119,38 @@ body { font-family: system-ui, sans-serif; margin: 16px; }
 canvas { max-height: 260px; margin-top: 16px; }
 \`\`\`
 \`\`\`js file=app.js
-const CONN = 'a9ce6906-9a5d-4d2a-8cf2-5d558de2cd41'; // DataGeo-SP
+const CONN = '00ccec54-d673-4b5b-8255-0b91a78e8775'; // IDESP-SP
+// Top 10 municípios com mais bens tombados (dados reais do WFS do IDESP).
+const dados = [
+  ['São Luís Do Paraitinga', 552], ['Santos', 361], ['São Paulo', 264],
+  ['Itu', 247], ['Iguape', 69], ['São Carlos', 35], ['Ubatuba', 30],
+  ['Campinas', 24], ['Cunha', 22], ['Ribeirão Preto', 21]
+];
+const municipios = dados.map(d => d[0]);
+const valores = dados.map(d => d[1]);
+// CQL que restringe a camada aos mesmos municípios do gráfico.
+const cql = "nome_munic IN (" + municipios.map(m => "'" + m + "'").join(',') + ")";
+
 const map = L.map('map').setView([-22.2, -48.7], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 L.tileLayer.wms(IUBI_BASE + '/map-render/v1/' + CONN + '/render/map', {
-  layers: 'datageowms:G_GEOLOGIA', format: 'image/png', transparent: true, version: '1.3.0'
+  layers: 'idesp_acervo:bem_tomb_a_2023_01_v2', cql_filter: cql,
+  format: 'image/png', transparent: true, version: '1.3.0'
 }).addTo(map);
 
-const labels = ['Campinas', 'Sorocaba', 'Ribeirão Preto', 'S. J. Rio Preto', 'Bauru'];
-const valores = [130, 95, 80, 72, 60];
 new Chart(document.getElementById('grafico'), {
   type: 'bar',
-  data: { labels, datasets: [{ label: 'Indicador (exemplo)', data: valores,
+  data: { labels: municipios, datasets: [{ label: 'Bens tombados', data: valores,
     backgroundColor: 'rgba(37,99,235,0.6)' }] },
   options: { scales: { y: { beginAtZero: true } } }
 });
 \`\`\``;
 
 export const COPILOT_SUGGESTIONS: string[] = [
-  'Crie um dashboard com um mapa e um gráfico usando dados do DataGeo-SP.',
-  'Monte uma página com um mapa Leaflet e a camada de geologia do DataGeo-SP.',
+  'Crie um dashboard com um mapa e um gráfico dos 10 municípios com mais bens tombados (IDESP), destacando-os no mapa com CQL.',
+  'Monte uma página com um mapa Leaflet mostrando os bens tombados pelo Condephaat (IDESP).',
   'Como listo as camadas de um servidor GIS pela API?',
   'Explique como filtrar feições usando CQL na API de features.',
 ];

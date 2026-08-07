@@ -120,8 +120,18 @@ export function parseProjectFiles(text: string): PlaygroundFile[] {
   return files;
 }
 
-// Um projeto é "executável" se tiver ao menos um html, ou um js/ts (que pode
-// montar em #root sozinho).
+// Detecta se o JS/TS realmente renderiza algo na página (mapa, gráfico, DOM),
+// para distinguir um PROJETO executável de um simples trecho ilustrativo (ex.:
+// um exemplo de fetch/CQL numa resposta conceitual).
+const RENDER_HINT =
+  /\bL\s*\.\s*map\s*\(|new\s+Chart\s*\(|ReactDOM|createRoot|\.\s*render\s*\(|document\s*\.\s*(getElementById|querySelector|body|createElement)/;
+
+// Um projeto é "executável" (e merece o Playground) se tiver um arquivo HTML —
+// o padrão que o Copilot usa ao gerar páginas/dashboards — ou um JS/TS que de
+// fato desenha algo. Respostas apenas conceituais (sem HTML e sem render) não
+// abrem o Playground.
 export function hasRunnableProject(files: PlaygroundFile[]): boolean {
-  return files.some((f) => f.lang === 'html' || JS_LANGS.includes(f.lang));
+  if (files.some((f) => f.lang === 'html')) return true;
+  const js = files.filter((f) => JS_LANGS.includes(f.lang));
+  return js.some((f) => RENDER_HINT.test(f.content));
 }

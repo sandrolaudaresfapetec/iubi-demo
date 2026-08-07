@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Play, X, RotateCcw, Terminal, Download, FileCode } from 'lucide-react';
+import { Play, X, RotateCcw, Terminal, Download, FileCode, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { JS_LANGS, type FileLang, type PlaygroundFile } from '../lib/playground';
 
 interface LogEntry {
@@ -209,6 +209,16 @@ function download(name: string, content: string, type = 'text/plain') {
   URL.revokeObjectURL(url);
 }
 
+// Abre o projeto gerado em uma nova aba, em tela cheia (sem o corte do modal).
+// eslint-disable-next-line react-refresh/only-export-components
+export function openProjectInNewTab(files: PlaygroundFile[]) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.open();
+  win.document.write(buildSrcDoc(files, window.location.origin));
+  win.document.close();
+}
+
 const LEVEL_STYLE: Record<LogEntry['level'], string> = {
   log: 'text-slate-200',
   info: 'text-sky-300',
@@ -228,12 +238,14 @@ export function CodePlayground({
   const [srcDoc, setSrcDoc] = useState('');
   const [runKey, setRunKey] = useState(0);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const active = files[activeIdx] ?? files[0];
 
   const run = useCallback(() => {
     setLogs([]);
+    setConsoleOpen(false);
     setSrcDoc(buildSrcDoc(files, window.location.origin));
     setRunKey((k) => k + 1);
   }, [files]);
@@ -249,7 +261,12 @@ export function CodePlayground({
     download('iubi-playground.html', buildStandalone(files, window.location.origin), 'text/html');
   }, [files]);
 
+  const openInNewTab = useCallback(() => {
+    openProjectInNewTab(files);
+  }, [files]);
+
   const canDownloadActive = useMemo(() => active && active.content.trim().length > 0, [active]);
+  const errorCount = useMemo(() => logs.filter((l) => l.level === 'error').length, [logs]);
 
   useEffect(() => {
     // roda automaticamente ao abrir
@@ -262,7 +279,9 @@ export function CodePlayground({
       const data = e.data as { __iubiPlayground?: boolean; level?: LogEntry['level']; text?: string };
       if (!data || !data.__iubiPlayground) return;
       if (iframeRef.current && e.source !== iframeRef.current.contentWindow) return;
-      setLogs((prev) => [...prev, { level: data.level ?? 'log', text: data.text ?? '' }]);
+      const level = data.level ?? 'log';
+      if (level === 'error' || level === 'warn') setConsoleOpen(true);
+      setLogs((prev) => [...prev, { level, text: data.text ?? '' }]);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -280,7 +299,7 @@ export function CodePlayground({
         role="dialog"
         aria-modal="true"
         aria-label="Playground de código"
-        className="flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5">
@@ -294,6 +313,13 @@ export function CodePlayground({
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-iubi-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-iubi-700"
           >
             <Play size={14} /> Executar
+          </button>
+          <button
+            onClick={openInNewTab}
+            title="Abrir o resultado em uma nova aba (tela cheia, sem corte)"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <ExternalLink size={14} /> Abrir em nova aba
           </button>
           <button
             onClick={downloadAll}
@@ -353,8 +379,15 @@ export function CodePlayground({
           </div>
 
           <div className="flex min-h-0 flex-col">
-            <div className="border-b border-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Resultado
+            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <span>Resultado</span>
+              <button
+                onClick={openInNewTab}
+                title="Abrir em nova aba (tela cheia)"
+                className="inline-flex items-center gap-1 normal-case tracking-normal text-iubi-600 hover:text-iubi-700"
+              >
+                <ExternalLink size={13} /> Nova aba
+              </button>
             </div>
             <div className="relative min-h-0 flex-1 bg-slate-50">
               {srcDoc ? (
@@ -372,27 +405,44 @@ export function CodePlayground({
                 </div>
               )}
             </div>
-            <div className="flex h-40 flex-col border-t border-slate-200">
+            <div className={`flex flex-col border-t border-slate-200 ${consoleOpen ? 'h-40' : 'shrink-0'}`}>
               <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                <span>Console</span>
-                {logs.length > 0 && (
+                <button
+                  onClick={() => setConsoleOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 uppercase tracking-wide text-slate-400 hover:text-slate-600"
+                >
+                  {consoleOpen ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+                  Console
+                  {logs.length > 0 && (
+                    <span
+                      className={`ml-1 rounded px-1.5 text-[10px] ${
+                        errorCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {logs.length}
+                    </span>
+                  )}
+                </button>
+                {consoleOpen && logs.length > 0 && (
                   <button onClick={() => setLogs([])} className="text-[11px] normal-case text-slate-400 hover:text-slate-600">
                     limpar
                   </button>
                 )}
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto bg-slate-900 p-2 font-mono text-[12px] leading-relaxed">
-                {logs.length === 0 ? (
-                  <div className="text-slate-500">Sem saída ainda.</div>
-                ) : (
-                  logs.map((l, i) => (
-                    <div key={i} className={`whitespace-pre-wrap break-words ${LEVEL_STYLE[l.level]}`}>
-                      {l.level === 'error' ? '✕ ' : l.level === 'warn' ? '⚠ ' : ''}
-                      {l.text}
-                    </div>
-                  ))
-                )}
-              </div>
+              {consoleOpen && (
+                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-900 p-2 font-mono text-[12px] leading-relaxed">
+                  {logs.length === 0 ? (
+                    <div className="text-slate-500">Sem saída ainda.</div>
+                  ) : (
+                    logs.map((l, i) => (
+                      <div key={i} className={`whitespace-pre-wrap break-words ${LEVEL_STYLE[l.level]}`}>
+                        {l.level === 'error' ? '✕ ' : l.level === 'warn' ? '⚠ ' : ''}
+                        {l.text}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

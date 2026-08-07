@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layers, Search, X, Plus, Check, Info } from 'lucide-react';
 import { useGisConnections, useLayerCapabilities } from '../lib/hooks';
 import { legendUrl } from '../lib/iubi';
@@ -12,6 +12,34 @@ export function MapExplorerPage() {
   const [filter, setFilter] = useState('');
   const [active, setActive] = useState<ActiveLayer[]>([]);
   const [featureInfo, setFeatureInfo] = useState<FeatureInfoResult | null>(null);
+  const [panelWidth, setPanelWidth] = useState(384);
+  const draggingRef = useRef(false);
+
+  const startResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!draggingRef.current) return;
+      setPanelWidth(Math.min(640, Math.max(240, e.clientX)));
+    };
+    const onUp = () => {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, []);
 
   const effectiveConn = connectionId || gis.data?.[0]?.id || '';
   const caps = useLayerCapabilities(effectiveConn);
@@ -47,7 +75,10 @@ export function MapExplorerPage() {
   return (
     <div className="h-[calc(100vh-4rem-2.5rem)] flex">
       {/* Painel de camadas */}
-      <aside className="w-96 shrink-0 border-r border-slate-200 bg-white flex flex-col">
+      <aside
+        style={{ width: panelWidth }}
+        className="shrink-0 border-r border-slate-200 bg-white flex flex-col"
+      >
         <div className="p-4 border-b border-slate-200 space-y-3">
           <div className="flex items-center gap-2 font-semibold text-slate-700">
             <Layers size={18} /> Catálogo de camadas
@@ -124,6 +155,15 @@ export function MapExplorerPage() {
           </StateWrapper>
         </div>
       </aside>
+
+      {/* Divisória arrastável */}
+      <div
+        onPointerDown={startResize}
+        title="Arraste para redimensionar o painel"
+        className="group relative w-1.5 shrink-0 cursor-col-resize bg-slate-200 hover:bg-iubi-400"
+      >
+        <span className="absolute inset-y-0 -left-1 -right-1" />
+      </div>
 
       {/* Mapa */}
       <div className="relative flex-1 min-w-0">
