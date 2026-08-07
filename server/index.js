@@ -25,6 +25,47 @@ const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.groq.com/ope
 const DEFAULT_MODEL = process.env.AI_MODEL || 'llama-3.1-8b-instant';
 const API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || '';
 
+// Limite de tokens/minuto do plano Groq (free = 6000). Como o histórico do chat
+// cresce com blocos de código grandes, um request pode estourar o TPM e o Groq
+// devolve 413/429 (rate_limit_exceeded). Aparamos as mensagens para caber no
+// orçamento antes de enviar. Ajustável por AI_TPM_LIMIT.
+const AI_TPM_LIMIT = Number(process.env.AI_TPM_LIMIT || 6000);
+const AI_MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1024);
+// Estimativa conservadora de tokens. Português acentuado e código tokenizam mais
+// denso que ~4 chars/token, então usamos ~3 chars/token para não subestimar.
+const CHARS_PER_TOKEN = 3;
+const estimateTokens = (text) => Math.ceil((text ? String(text).length : 0) / CHARS_PER_TOKEN);
+
+// Mantém a mensagem de sistema e o máximo de mensagens recentes que couber no
+// orçamento de entrada informado. Preserva a ordem cronológica e, se a última
+// mensagem do usuário sozinha exceder o orçamento, ela é truncada.
+function fitMessagesToBudget(messages, inputBudget) {
+  const budget = Math.max(300, inputBudget);
+  const system = messages.find((m) => m.role === 'system');
+  const convo = messages.filter((m) => m.role !== 'system');
+  let used = system ? estimateTokens(system.content) : 0;
+
+  const kept = [];
+  for (let i = convo.length - 1; i >= 0; i--) {
+    const msg = convo[i];
+    const cost = estimateTokens(msg.content);
+    if (used + cost > budget) {
+      // A última mensagem (mais recente) é essencial: trunca para caber.
+      if (kept.length === 0) {
+        const room = Math.max(0, budget - used);
+        const chars = room * CHARS_PER_TOKEN;
+        if (chars > 0) {
+          kept.unshift({ ...msg, content: String(msg.content).slice(0, chars) });
+        }
+      }
+      break;
+    }
+    used += cost;
+    kept.unshift(msg);
+  }
+  return system ? [system, ...kept] : kept;
+}
+
 // Gateway das APIs IUBI. O frontend chama /iubi/* (mesma origem) e o servidor
 // repassa para este upstream — evita mixed-content (HTTPS->HTTP) e CORS.
 const IUBI_UPSTREAM = (process.env.IUBI_UPSTREAM || 'http://100.52.200.210:32200').replace(/\/$/, '');
@@ -94,25 +135,42 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: model || DEFAULT_MODEL,
-        messages,
-        temperature: 0.2,
-        max_tokens: 1500,
-        stream: true,
-      }),
-    });
+    // Orçamento de entrada inicial (conservador). A cada 413/429 por excesso de
+    // tokens, apara mais o histórico e tenta de novo — como o streaming ainda não
+    // começou, é seguro reenviar. Garante sucesso mesmo se a estimativa errar.
+    let inputBudget = AI_TPM_LIMIT - AI_MAX_OUTPUT_TOKENS - 900;
+    let upstream = null;
+    let detail = '';
+    for (let attempt = 0; attempt < 5; attempt++) {
+      upstream = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: model || DEFAULT_MODEL,
+          messages: fitMessagesToBudget(messages, inputBudget),
+          temperature: 0.2,
+          max_tokens: AI_MAX_OUTPUT_TOKENS,
+          stream: true,
+        }),
+      });
+      if (upstream.ok && upstream.body) break;
+      detail = await upstream.text().catch(() => '');
+      const tokenLimited =
+        (upstream.status === 429 || upstream.status === 413) && /tokens|too large|rate_limit/i.test(detail);
+      if (!tokenLimited || inputBudget <= 400) break;
+      inputBudget = Math.floor(inputBudget * 0.6);
+    }
 
-    if (!upstream.ok || !upstream.body) {
-      const detail = await upstream.text().catch(() => '');
-      res.status(upstream.status || 502).json({
-        error: `Falha no backend de IA (${upstream.status}).`,
+    if (!upstream || !upstream.ok || !upstream.body) {
+      const status = upstream?.status || 502;
+      const isRateLimit = status === 429 || status === 413;
+      res.status(status).json({
+        error: isRateLimit
+          ? 'O assistente de IA atingiu o limite de tokens por minuto do Groq. Aguarde alguns segundos e tente novamente (ou inicie uma nova conversa para reduzir o histórico).'
+          : `Falha no backend de IA (${status}).`,
         detail: detail.slice(0, 500),
       });
       return;
